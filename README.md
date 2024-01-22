@@ -19,5 +19,5 @@ Description of the project.
 
 #### 2.1 - Data preparation
 
-- **Rmd code:*** [2.1-microbial_metagenomics_data_preparation.Rmd](2.1-microbial_metagenomics_data_preparation.Rmd)
+- **Rmd code:** [2.1-microbial_metagenomics_data_preparation.Rmd](2.1-microbial_metagenomics_data_preparation.Rmd)
 - **HTML render:** [2.1-microbial_metagenomics_data_preparation.html](https://htmlpreview.github.io/?https://github.com/alberdilab/behavioral_hologenomics/blob/main/2.1-microbial_metagenomics_data_preparation.html)
