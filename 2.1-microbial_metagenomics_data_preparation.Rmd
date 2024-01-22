@@ -59,6 +59,13 @@ genome_taxonomy <- read_tsv("https://sid.erda.dk/share_redirect/CfgcycDTiJ/mag_c
   mutate(genome = str_replace_all(genome,"\\.fa", "")) %>%
   separate(classification, c("domain","phylum","class","order","family","genus","species"),  sep =";") %>%
   select(genome,domain,phylum,class,order,family,genus,species) %>%
+  mutate(phylum = case_when(
+        phylum == "p__Firmicutes" ~ "p__Bacillota",
+        phylum == "p__Firmicutes_A" ~ "p__Bacillota_A",
+        phylum == "p__Firmicutes_B" ~ "p__Bacillota_B",
+        phylum == "p__Proteobacteria" ~ "p__Pseudomonadota",
+        phylum == "p__Actinobacteriota" ~ "p__Actinomycetota",
+        TRUE ~ phylum)) %>% #Replace phylum names for GTDB r214 taxonomy to match EHI taxonomy colors
   arrange(match(genome, genomes))
 ```
 
