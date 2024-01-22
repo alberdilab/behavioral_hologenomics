@@ -21,6 +21,8 @@ suppressPackageStartupMessages(library(ggtreeExtra))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(phytools))
 suppressPackageStartupMessages(library(Rtsne))
+suppressPackageStartupMessages(library(ggh4x))
+suppressPackageStartupMessages(library(hilldiv2))
 ```
 
 ## Load data
@@ -225,4 +227,35 @@ function_ordination <- tSNE_function$Y %>%
                 guides(color = guide_legend(override.aes = list(size = 5))) # enlarge Phylum dots in legend
 
 function_ordination
+```
+
+## Taxonomy barplot
+
+```{r barplot_, fig.height=16, fig.width=10, fig.fullwidth=TRUE}
+genome_counts %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  filter(!is.na(count)) %>%
+  filter(!is.na(animal)) %>%
+  filter(cage %in% c("C03","C04","C05","C06","C10","C11","C12","C13")) %>%
+  mutate(treatment = factor(treatment, levels = c("OP","HT","HR","CD","CR","DT","DR","AN","T1","T2","T3"))) %>%
+  ggplot(., aes(x=count,y=sample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    scale_fill_manual(values=phylum_colors) +
+    labs(y = "Relative abundance") +
+    facet_nested(cage + treatment ~ .,  scales="free") + #facet per day and treatment
+    guides(fill = guide_legend(ncol = 1)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+          strip.text.y = element_text(angle = 0),
+          axis.title.x = element_blank(),
+          panel.background = element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+          panel.spacing = unit(0, "lines")) +
+   labs(fill="Phylum")
+
 ```

@@ -45,7 +45,12 @@ basehits <- read_tsv("https://sid.erda.dk/share_redirect/CfgcycDTiJ/beho_mgquant
 
 ### Sample metadata table
 ```{r sample_metadata, warning=FALSE, comments="", message=FALSE, results='hide'}
-sample_metadata <- read_csv("https://sid.erda.dk/share_redirect/CfgcycDTiJ/BeHo_sample_metadata.csv")
+sample_metadata <- read_csv("https://sid.erda.dk/share_redirect/CfgcycDTiJ/BeHo_sample_metadata.csv") %>%
+   rename(sample=ERDA_sample_ID) %>%
+    mutate(animal = substr(mouse_ID, 1, 5)) %>%
+    mutate(cage = substr(mouse_ID, 1, 3)) %>%
+    mutate(treatment = substr(sample, 6, 7)) %>%
+    select(sample,animal,cage,treatment)
 ```
 
 ### Genome metadata
