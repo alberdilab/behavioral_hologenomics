@@ -1,0 +1,10 @@
+---
+title: "2.3-microbial_metagenomics_diversity"
+author: "Luisa Santos-Bay & Antton Alberdi"
+date: "2024-01-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```

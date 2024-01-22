@@ -1,6 +1,6 @@
 ---
-title: "3-microbial_metagenomics.Rmd"
-author: "Antton Alberdi"
+title: "2.1-microbial_metagenomics_data_preparation.Rmd"
+author: "Luisa Santos-Bay & Antton Alberdi"
 date: "2023-12-11"
 output: html_document
 ---
