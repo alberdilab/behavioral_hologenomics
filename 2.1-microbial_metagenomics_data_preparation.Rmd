@@ -45,12 +45,27 @@ basehits <- read_tsv("https://sid.erda.dk/share_redirect/CfgcycDTiJ/beho_mgquant
 
 ### Sample metadata table
 ```{r sample_metadata, warning=FALSE, comments="", message=FALSE, results='hide'}
+dominance_data <- read_tsv("data/dominance.tsv") %>%
+    mutate(treatment = case_when(
+        time_point == 1 ~ "OP",
+        time_point == 2 ~ "HT",
+        time_point == 3 ~ "HR",
+        time_point == 4 ~ "CD",
+        time_point == 5 ~ "CR",
+        time_point == 6 ~ "DT",
+        TRUE ~ NA_character_)) %>%
+    mutate(sample = paste0(substr(mouse_ID, 1, 5),treatment)) %>%
+    rename(dominance=predicted_probability) %>%
+    select(sample,dominance)
+
 sample_metadata <- read_csv("https://sid.erda.dk/share_redirect/CfgcycDTiJ/BeHo_sample_metadata.csv") %>%
    rename(sample=ERDA_sample_ID) %>%
     mutate(animal = substr(mouse_ID, 1, 5)) %>%
     mutate(cage = substr(mouse_ID, 1, 3)) %>%
     mutate(treatment = substr(sample, 6, 7)) %>%
-    select(sample,animal,cage,treatment)
+    mutate(group = ifelse(cage == "C04" | cage == "C13","invariable","variable")) %>%
+    select(sample,animal,cage,group,treatment) %>%
+    left_join(dominance_data,by=join_by(sample==sample))
 ```
 
 ### Genome metadata

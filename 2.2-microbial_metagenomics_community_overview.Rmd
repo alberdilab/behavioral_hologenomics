@@ -229,9 +229,9 @@ function_ordination <- tSNE_function$Y %>%
 function_ordination
 ```
 
-## Taxonomy barplot
+### Taxonomy barplot per treatment
 
-```{r barplot_, fig.height=16, fig.width=10, fig.fullwidth=TRUE}
+```{r barplot_treatments, fig.height=16, fig.width=10, fig.fullwidth=TRUE}
 genome_counts %>%
   mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
   pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
@@ -258,4 +258,78 @@ genome_counts %>%
           panel.spacing = unit(0, "lines")) +
    labs(fill="Phylum")
 
+```
+
+### Taxonomy barplot per individual
+
+```{r barplot_individuals, fig.height=16, fig.width=10, fig.fullwidth=TRUE}
+
+# Facet groups for coloring
+facet_boxes <- sample_metadata %>%
+  filter(!is.na(count)) %>%
+  filter(!is.na(animal)) %>%
+  filter(cage %in% c("C03","C04","C05","C06","C10","C11","C12","C13")) %>%
+	distinct(group,cage,animal) %>%
+	arrange(group,cage)
+
+strip_background <- strip_nested(background_y = elem_list_rect(fill = c(
+        # level1 colors
+        case_match(
+          unique(facet_boxes$group),
+          "invariable" ~ "#ccd47b",
+          "variable" ~ "#7dacc9",
+          .default = "grey"
+        ),
+        # level2 colors
+        case_match(
+          unique(facet_boxes$cage),
+          "C04" ~ "#dee3aa",
+          "C13" ~ "#a7ab7e",
+          "C03" ~ "#adcde0",
+          "C05" ~ "#89a0ad",
+          "C06" ~ "#adcde0",
+          "C10" ~ "#89a0ad",
+          "C11" ~ "#adcde0",
+          "C12" ~ "#89a0ad",
+          .default = "grey"
+        ),
+	# level3 colors
+        case_match(
+          unique(facet_boxes$animal),
+          "X" ~ "green",
+          .default = "#f4f4f4"
+        ) 
+	)))
+
+
+genome_counts %>%
+  mutate_at(vars(-genome),~./sum(.)) %>% #apply TSS nornalisation
+  pivot_longer(-genome, names_to = "sample", values_to = "count") %>% #reduce to minimum number of columns
+  left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append genome metadata
+  left_join(., sample_metadata, by = join_by(sample == sample)) %>% #append sample metadata
+  filter(!is.na(count)) %>%
+  filter(!is.na(animal)) %>%
+  filter(cage %in% c("C03","C04","C05","C06","C10","C11","C12","C13")) %>%
+  mutate(sample = factor(sample, levels = sample_metadata %>% 
+                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CD","CR","DT","DR","AN","T1","T2","T3")))) %>% 
+                                                    select(sample) %>% 
+                                                    filter(!is.na(sample)) %>% 
+                                                    pull() ))  %>% # sort samples
+  ggplot(., aes(x=count,y=sample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
+    geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
+    scale_fill_manual(values=phylum_colors) +
+    labs(x = "Relative abundance", y ="Samples") +
+    facet_nested(group + cage + animal ~ .,  scales="free", strip = strip_background) + #facet per day and treatment
+    guides(fill = guide_legend(ncol = 1)) +
+    scale_x_continuous(expand = c(0.001, 0.001)) +
+    theme(axis.text.y = element_blank(),
+          axis.title.x = element_blank(),
+          strip.text.y = element_text(angle = 0),
+          panel.background = element_blank(),
+          panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+          panel.spacing = unit(0, "lines"),
+          legend.position = "none")
 ```
