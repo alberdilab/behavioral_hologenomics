@@ -160,52 +160,6 @@ grid.arrange(grobs = list(genome_completeness,genome_biplot,genome_contamination
 
 ```
 
-## Functional overview
-
-```{r function_heatmap, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
-
-# Aggregate basal GIFT into elements
-function_table <- genome_gifts %>%
-    to.elements(., GIFT_db)
-
-# Generate  basal tree
-function_tree <- force.ultrametric(genome_tree, method="extend") %>%
-                ggtree(., size = 0.3) 
-
-#Add phylum colors next to the tree tips
-function_tree <- gheatmap(function_tree, phylum_heatmap, offset=0, width=0.1, colnames=FALSE) +
-            scale_fill_manual(values=phylum_colors) +
-            labs(fill="Phylum")
-
-#Reset fill scale to use a different colour profile in the heatmap
-function_tree <- function_tree + new_scale_fill()
-
-#Add functions heatmap
-function_tree <- gheatmap(function_tree, function_table, offset=0.5, width=3.5, colnames=FALSE) +
-            vexpand(.08) +
-            coord_cartesian(clip = "off") +
-            scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +
-            labs(fill="Function fullness")
-
-#Reset fill scale to use a different colour profile in the heatmap
-function_tree <- function_tree + new_scale_fill()
-
-# Add completeness barplots
-function_tree <- function_tree +
-            geom_fruit(data=genome_metadata,
-            geom=geom_bar,
-            grid.params=list(axis="x", text.size=2, nbreak = 1),
-            axis.params=list(vline=TRUE),
-            mapping = aes(x=length, y=genome, color=completeness),
-                 offset = 3.8,
-                 orientation="y",
-                 stat="identity") +
-            scale_color_gradient(low = "#cf8888", high = "#a2cc87") +
-            labs(color="Genome completeness")
-
-function_tree
-```
-
 ## Functional ordination
 
 ```{r function_ordination, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}

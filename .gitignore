@@ -4,4 +4,6 @@
 .Ruserdata
 data/.DS_Store
 scripts/.DS_Store
+hmsc/hmsc.Rdata
+hmsc/fit_model1_250_1.Rdata
 .DS_Store
