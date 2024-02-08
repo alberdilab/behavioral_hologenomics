@@ -22,6 +22,8 @@ suppressPackageStartupMessages(library(ggnewscale))
 suppressPackageStartupMessages(library(ggtreeExtra))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(phytools))
+suppressPackageStartupMessages(library(hilldiv2))
+suppressPackageStartupMessages(library(knitr))
 ```
 
 ## Load data
@@ -31,6 +33,8 @@ load("data/data.Rdata")
 ```
 
 ## Prepare input for Hmsc
+Hmsc requires input object to be formatted in a very specific way. In the following chunk the ramdom effects, fixed effects, read counts and genome phylogeny are declared.
+
 
 ```{r hmsc_input, warning=FALSE, comments="", message=FALSE}
 # Random effects data (study design)
@@ -65,29 +69,17 @@ XData1 <- sample_metadata %>%
                     mutate(group = factor(group)) %>%
                     column_to_rownames("sample")
 
-XData2 <- sample_metadata %>%
-                    filter(sample %in% rownames(StudyDesign)) %>%
-                    distinct() %>%
-                    select(sample,group,treatment) %>%
-                    mutate(logseqdepth=read_counts %>% #total log-sequencing depth
-                        select(all_of(row.names(StudyDesign))) %>%
-                        colSums() %>%
-                        log()
-                    ) %>%
-                    mutate(treatment = factor(treatment)) %>%
-                    mutate(group = factor(group)) %>%
-                    column_to_rownames("sample")
-
 # Genome phylogeny
 PData <- genome_tree
 ```
 
 ## Define formulas of the Hmsc model
+Once the input data are ready, it is time for defining the formulas that will structure the model. In our case, the temporal dynamic of microbial communities will be modelled in light of the dominance indices of mice, while adding group (variable or invariable environment) and log-sequencing depth (the sequencing effort per sample) as covariates. Lastly, animal ID and cage ID are declared as random effects to control for the longitudinal aspect of the study (multiple samples per animal) and the housing structure (5 animals per cage).
 
 ```{r hmsc_formulas, warning=FALSE, comments="", message=FALSE}
 
 # Fixed effects formula
-XFormula1 = ~group + dominance + logseqdepth
+XFormula1 = ~dominance + group + logseqdepth
 
 # Study design
 rL.animal = HmscRandomLevel(units = levels(StudyDesign$animal))
@@ -95,6 +87,8 @@ rL.cage = HmscRandomLevel(units = levels(StudyDesign$cage))
 ```
 
 ## Define and Hmsc models
+The following chunk generates the Hmsc model that we will later fit in the high computation cluster. In this case there will be a single model called 'model1'.
+
 ```{r hmsc_models, warning=FALSE, comments="", message=FALSE}
 #Define models
 model1 = Hmsc(Y=YData,
@@ -116,6 +110,8 @@ save(model_list, file = "hmsc/hmsc.Rdata")
 Upload **hmsc/hmsc.Rdata** to the HPC respecting the directory structure.
 
 ## Define MCMC
+The next step is to define the parameters of the MCMC process for model fitting. In this case we opt for a single number of samplings (250), two thinning values (1 and 10), and 4 chains. This means that once the burn-in part is removed, each of the four MCMC chains will be sampled 250 times either with an interval of 1 or 10 iterations. Note that the 4x250x10 option is about 10 times slower than 4x250x1, although the probability for parameter convergence is increased.
+
 ```{r hmsc_mcmc, warning=FALSE, comments="", message=FALSE}
 # How often to sample the MCMC
 MCMC_samples_list = 250
@@ -129,7 +125,7 @@ nChains = 4
 
 ## Generate Hmsc executables
 
-The next chunk generates shell files for every combination of model, MCMC samples and MCMM thinning, ready to be launched as SLURM jobs.
+The next chunk generates shell files for every combination of model, MCMC samples and MCMC thinning, ready to be launched as SLURM jobs. This is because Hmsc requires a notable amount of memory and long computation times, which renders impossible to run most fitting processes in personal computers. 
 
 ```{r hmsc_executables, warning=FALSE, comments="", message=FALSE}
 
@@ -239,10 +235,11 @@ sbatch hmsc/exe_model1_250_1.sh
 sbatch hmsc/exe_model1_250_10.sh
 ```
 
+When the task is done download the produced **hmsc/conv_XXXXX.Rdata** and **hmsc/fit_XXXXX.Rdata** files to your computer. The 'conv' file only contains the information required for assessing model convergence, while the file 'fit' contains all the information of the fitted model, hence its large size. 
+
 ## Assess chain convergence
 
-Convergence diagnostic values substantially above 1 indicate lack of convergence.
-Values below 1.1 are considered good enough
+The 'conv' file is used to assess whether the multiple MCMC chains ran for model fitting converged, i.e., whether all parameters reached similar values. Convergence diagnostic values substantially above 1 indicate lack of convergence, while values below 1.1 are usually considered good enough.
 
 ```{r hmsc_convergence, eval=FALSE, warning=FALSE, comments="", message=FALSE}
 
@@ -291,8 +288,10 @@ ls() %>%
         theme_classic()
 
 ```
+In the beta plot, each dot represents the beta parameter of a different genome, while the dots in the gamma plot indicate different parameters related to phylogeny. We observe that both beta (response to dominance) and rho (phylogenetic signal) parameters display values around 1, with no outliers, indicating that the 4x250x1 model fitting was good enough for our purposes.
 
 ## Compute variance partitioning
+Once the chain convergence has been validated, we can visualise how the variance of each genome is explained by the different variables employed in the modelling.
 
 ```{r hmsc_variancepart, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 
@@ -303,7 +302,10 @@ varpart=computeVariancePartitioning(m)
 plotVariancePartitioning(hM=m,VP=varpart)
 ```
 
+The summary statistics indicate that sequencing depth and the animal random effect explain most of the variation, which highlight the importance of controlling for these features when modelling. There is a substantial cage effect, indicating that the microbiome properties are more alike among cage mates. The two variables that explain the lowest portion of the variance are the experimental group (variable or invariable environment) and dominance index, highlighting that the effect sizes of dominance are rather low.
+
 ## Get posterior estimates
+The next step is to get the posterior estimates of beta, which is the parameter that links dominance with the microbiome. We employ a support threshold of '0.05' to assign significance, meaning that parameters with posterior overlaps of <10% are considered significantly different.
 
 ```{r posterior_estimates, warning=FALSE, comments="", message=FALSE}
 
@@ -339,6 +341,38 @@ genomes_neg <- postestimate_support %>%
 
 #hmsc built-in function
 #plotBeta(hM=m, post=postestimate,supportLevel = 0.95, plotTree=T)
+```
+
+### Positively associated genomes
+
+```{r positive_table, warning=FALSE, comments="", message=FALSE}
+genome_metadata %>%
+    filter(genome %in% genomes_pos) %>%
+    select(genome, phylum, order, species, completeness, contamination) %>%
+    left_join(postestimate$mean %>%
+                  as.data.frame() %>%
+                  slice(3) %>% t() %>%
+                  as.data.frame() %>%
+                  rename(beta=1) %>%
+                  rownames_to_column(var="genome"), by=join_by(genome==genome)) %>%
+    arrange(-beta) %>%
+    kable()
+```
+
+### Negatively associated genomes
+
+```{r negative_table, warning=FALSE, comments="", message=FALSE}
+genome_metadata %>%
+    filter(genome %in% genomes_neg) %>%
+    select(genome, phylum, order, species, completeness, contamination) %>%
+    left_join(postestimate$mean %>%
+                  as.data.frame() %>%
+                  slice(3) %>% t() %>%
+                  as.data.frame() %>%
+                  rename(beta=1) %>%
+                  rownames_to_column(var="genome"), by=join_by(genome==genome)) %>%
+    arrange(beta) %>%
+    kable()
 ```
 
 ## Plot posterior estimates for dominance
@@ -410,7 +444,8 @@ function_tree <- function_tree +
 function_tree
 ```
 
-## Predict responses
+## Predict responses to dominance
+Based on the fitted model, we can predict the structure of the microbial community for each level of dominance for a certain value of sequencing depth.
 
 ```{r hmsc_predictions, warning=FALSE, comments="", message=FALSE}
 
@@ -434,6 +469,9 @@ predY <- pred %>%
         pivot_longer(-c(dominance), names_to = "genome", values_to = "value")
 
 ```
+
+### Plot responses to dominance
+The estimated responses of genomes exhibiting significant positive and negative association with dominance.
 
 ```{r hmsc_temporal_predictions_genomes_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 #Get phylum colors from the EHI standard
@@ -468,10 +506,10 @@ postestimate_support %>%
 )
 ```
 
-
 ## Plot traits linked to trends
 
 ### Test functional trait differences
+Using Wilcoxon test with Benjamini-Hochberg procedure for FDR, identify functional traits that differ between genomes that are either positively or negatively association with dominance.
 
 ```{r hmsc_dominance_test, warning=FALSE, comments="", message=FALSE}
 postestimate_test <- postestimate_support %>%
@@ -507,3 +545,54 @@ postestimate_support %>%
                   strip.background = element_blank(),
                         axis.text.y=element_blank())
 ```
+### Community functional predictions
+```{r hmsc_community_predictions}
+
+function_table2 <- function_table %>% to.functions(., GIFT_db)
+
+community_gifts <- predY %>%
+  group_by(dominance, genome) %>%
+  mutate(row_id = row_number()) %>%
+  pivot_wider(names_from = genome, values_from = value) %>%
+  ungroup() %>%
+  group_split(row_id) %>%
+  as.list() %>%
+  lapply(., FUN = function(x){x %>%
+    select(-row_id) %>%
+    column_to_rownames(var = "dominance") %>%
+    as.data.frame() %>%
+    exp() %>%
+    t() %>%
+    tss() %>%
+    to.community(function_table2,.,GIFT_db) %>% 
+    as.data.frame() %>%
+    rownames_to_column(var="dominance")
+   })
+
+community_gifts %>%
+	bind_rows() %>%
+	pivot_longer(-dominance, names_to = "trait", values_to = "value") %>%
+	mutate(dominance=as.numeric(dominance)) %>%
+	filter(trait=="B0218") %>%
+   	ggplot(.,aes(x=dominance, y=value)) +
+	  geom_point() +
+          geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
+          theme_classic() +
+          labs(x="Dominance",y="Metabolic Capacity Index") 
+
+community_gifts %>%
+	bind_rows() %>%
+	pivot_longer(-dominance, names_to = "trait", values_to = "value") %>%
+	mutate(dominance=as.numeric(dominance)) %>%
+	#filter(trait=="B03") %>%
+   	ggplot(.,aes(x=dominance, y=value)) +
+	  geom_point() +
+          geom_quantile(quantiles = 0.05, formula = y ~ splines::bs(x, 3)) +
+          geom_quantile(quantiles = 0.5, formula = y ~ splines::bs(x, 3)) +
+          geom_quantile(quantiles = 0.95, formula = y ~ splines::bs(x, 3)) +
+          facet_grid(. ~ trait, ) +
+          theme_classic() +
+          labs(x="Dominance",y="Metabolic Capacity Index") 
+
+```
+
