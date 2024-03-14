@@ -86,26 +86,100 @@ alpha_div <- richness %>%
       full_join(neutral,by=join_by(sample==sample)) %>%
       full_join(phylogenetic,by=join_by(sample==sample)) %>%
       full_join(functional,by=join_by(sample==sample)) %>%
-      pivot_longer(-sample, names_to = "data", values_to = "value") %>%
+      pivot_longer(-sample, names_to = "metric", values_to = "diversity") %>%
       left_join(., sample_metadata, by = join_by(sample == sample)) %>%
        filter(cage %in% c("C03","C04","C05","C06","C10","C11","C12","C13")) %>%
-      mutate(value = as.numeric(value)) %>%
-      mutate(data = factor(data, levels = c("richness","neutral","phylogenetic","functional"))) #sort metrics
+      mutate(diversity = as.numeric(diversity)) %>%
+      mutate(metric = factor(metric, levels = c("richness","neutral","phylogenetic","functional"))) #sort metrics
+```
+
+```{r alpha_dominance_model, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+alpha_div %>% 
+      filter(metric == "richness") %>%
+      lmerTest::lmer(diversity ~ dominance + group + (1 | animal) + (1 | cage), data = ., REML = FALSE) %>%
+      summary()
+
+alpha_div %>% 
+      filter(metric == "neutral") %>%
+      lmerTest::lmer(diversity ~ dominance + group + (1 | animal) + (1 | cage), data = ., REML = FALSE) %>%
+      summary()
+
+alpha_div %>% 
+      filter(metric == "phylogenetic") %>% 
+      lmerTest::lmer(dominance ~ diversity + group + (1 | animal) + (1 | cage), data = ., REML = FALSE) %>%
+      summary()
+
+alpha_div %>% 
+      filter(metric == "functional") %>% 
+      lmerTest::lmer(dominance ~ diversity + group + (1 | animal) + (1 | cage), data = ., REML = FALSE) %>%
+      summary()
+```
+
+```{r alpha_dominance_richness_plot, message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
+alpha_div %>% 
+    filter(metric == "richness") %>% 
+    filter(treatment != "AN") %>% 
+    ggplot(aes(x=dominance, y=diversity, group=cage)) + 
+      geom_point()+
+      geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+      facet_nested(. ~ group + cage) + 
+      theme_minimal() +
+      theme(axis.text.x = element_blank()) +
+      labs(y="Richness")
+```
+
+```{r alpha_dominance_neutral_plot, message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
+alpha_div %>% 
+    filter(metric == "neutral") %>% 
+    filter(treatment != "AN") %>% 
+    ggplot(aes(x=dominance, y=diversity, group=cage)) + 
+      geom_point()+
+      geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+      facet_nested(. ~ group + cage) + 
+      theme_minimal() +
+      theme(axis.text.x = element_blank()) +
+      labs(y="Neutral diversity")
+```
+
+```{r alpha_dominance_phylogenetic_plot, message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
+alpha_div %>% 
+    filter(metric == "phylogenetic") %>% 
+    filter(treatment != "AN") %>% 
+    ggplot(aes(x=dominance, y=diversity, group=cage)) + 
+      geom_point()+
+      geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+      facet_nested(. ~ group + cage) + 
+      theme_minimal() +
+      theme(axis.text.x = element_blank()) +
+      labs(y="Phylogenetic diversity")
+```
+
+```{r alpha_dominance_functional_plot, message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
+alpha_div %>% 
+    filter(metric == "functional") %>%
+    filter(treatment != "AN") %>% 
+    ggplot(aes(x=dominance, y=diversity, group=cage)) + 
+      geom_point()+
+      geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+      facet_nested(. ~ group + cage) + 
+      theme_minimal() +
+      theme(axis.text.x = element_blank()) +
+      labs(y="Functional diversity")
 ```
 
 ```{r alpha_di_plot, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 #Plot diversities
 alpha_plot_neutral <- alpha_div %>%
-        filter(data=="neutral") %>%
+        filter(metric=="neutral") %>%
         mutate(sample = factor(sample, levels = sample_metadata %>% 
-                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CD","CR","DT","DR","AN","T1","T2","T3")))) %>% 
+                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CT","CR","DT","DR","AN","T1","T2","T3")))) %>% 
                                                     select(sample) %>% 
                                                     filter(!is.na(sample)) %>% 
                                                     pull() ))  %>% # sort samples
         filter(!is.na(animal)) %>%
-          ggplot(aes(x=value, y=sample)) +
+          ggplot(aes(x=diversity, y=sample)) +
             geom_bar(stat='identity', fill="#6c9ebc") +
-            facet_nested(group + cage + animal ~ data,  scales="free") + #facet per treatment and animal
+            facet_nested(group + cage + animal ~ metric,  scales="free") + #facet per treatment and animal
             coord_cartesian(xlim = c(1, NA)) +
             theme_classic() +
             theme(
@@ -119,16 +193,16 @@ alpha_plot_neutral <- alpha_div %>%
             )
 
 alpha_plot_phylo <- alpha_div %>%
-        filter(data=="phylogenetic") %>%
+        filter(metric=="phylogenetic") %>%
         mutate(sample = factor(sample, levels = sample_metadata %>% 
-                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CD","CR","DT","DR","AN","T1","T2","T3")))) %>% 
+                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CT","CR","DT","DR","AN","T1","T2","T3")))) %>% 
                                                     select(sample) %>% 
                                                     filter(!is.na(sample)) %>% 
                                                     pull() ))  %>% # sort samples
          filter(!is.na(animal)) %>%
-         ggplot(aes(x=value, y=sample)) +
+         ggplot(aes(x=diversity, y=sample)) +
             geom_bar(stat='identity', fill="#6c9ebc") +
-            facet_nested(group + cage + animal ~ data,  scales="free") + #facet per treatment and animal
+            facet_nested(group + cage + animal ~ metric,  scales="free") + #facet per treatment and animal
             coord_cartesian(xlim = c(1, NA)) +
             theme_classic() +
             theme(
@@ -142,16 +216,16 @@ alpha_plot_phylo <- alpha_div %>%
             )
 
 alpha_plot_func <- alpha_div %>%
-        filter(data=="functional") %>%
+        filter(metric=="functional") %>%
          mutate(sample = factor(sample, levels = sample_metadata %>% 
-                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CD","CR","DT","DR","AN","T1","T2","T3")))) %>% 
+                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CT","CR","DT","DR","AN","T1","T2","T3")))) %>% 
                                                     select(sample) %>% 
                                                     filter(!is.na(sample)) %>% 
                                                     pull() ))  %>% # sort samples
          filter(!is.na(animal)) %>%
-         ggplot(aes(x=value, y=sample)) +
+         ggplot(aes(x=diversity, y=sample)) +
             geom_bar(stat='identity', fill="#6c9ebc") +
-            facet_nested(group + cage + animal ~ data,  scales="free") + #facet per treatment and animal
+            facet_nested(group + cage + animal ~ metric,  scales="free") + #facet per treatment and animal
             coord_cartesian(xlim = c(1, NA)) +
             theme_classic() +
             theme(strip.text.y = element_text(angle = 0),
@@ -162,15 +236,11 @@ alpha_plot_func <- alpha_div %>%
             )
 
 grid.arrange(alpha_plot_neutral, alpha_plot_phylo, alpha_plot_func, nrow = 1)
-
 ```
 
 
-```{r beta_div, message=FALSE, warning=FALSE}
-
+```{r beta_div, message=FALSE, warning=FALSE, eval=FALSE}
 #Calculate Hill numbers
 beta_neutral <- genome_counts %>%
   column_to_rownames(var="genome") %>%
   hillpair(.,q=1, metric="C")
-
-

@@ -57,10 +57,10 @@ phylum_heatmap <- genome_metadata %>%
 
 # Generate  basal tree
 circular_tree <- force.ultrametric(genome_tree, method="extend") %>% # extend to ultrametric for the sake of visualisation
-    ggtree(., layout = 'circular', size = 0.3, angle=45)
+    ggtree(., layout="fan", open.angle=10, size=0.5)
 
 # Add phylum ring
-circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.85, width=0.1, colnames=FALSE) +
+circular_tree <- gheatmap(circular_tree, phylum_heatmap, offset=0.40, width=0.1, colnames=FALSE) +
         scale_fill_manual(values=phylum_colors) +
         geom_tiplab2(size=1, hjust=-0.1) +
         theme(legend.position = "none", plot.margin = margin(0, 0, 0, 0), panel.margin = margin(0, 0, 0, 0))
@@ -76,7 +76,7 @@ circular_tree <- circular_tree +
                 data=genome_metadata,
                 geom=geom_bar,
                 mapping = aes(x=completeness, y=genome, fill=contamination),
-                offset = 0.55,
+                offset = 0.40,
                 orientation="y",
               stat="identity")
 
@@ -92,14 +92,28 @@ circular_tree <-  circular_tree +
                  orientation="y",
          stat="identity")
 
+# Add text
+circular_tree <-  circular_tree +
+        annotate('text', x=2.7, y=0, label='            Phylum', family='arial', size=3.5) +
+        annotate('text', x=3.1, y=0, label='                         Genome quality', family='arial', size=3.5) +
+        annotate('text', x=3.5, y=0, label='                     Genome size', family='arial', size=3.5)
+
 #Plot circular tree
-circular_tree
+circular_tree %>% open_tree(30) %>% rotate_tree(90)
 ```
 
 
 ## Genome quality
 
-```{r genome_quality, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+```{r genome_quality_stats, message=FALSE, warning=FALSE}
+#Completeness
+genome_metadata %>% summarise(mean=mean(completeness),sd=sd(completeness))
+
+#Contamination
+genome_metadata %>% summarise(mean=mean(contamination),sd=sd(contamination))
+```
+
+```{r genome_quality_plot, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 
 #Generate quality biplot
 genome_biplot <- genome_metadata %>%
@@ -264,11 +278,12 @@ genome_counts %>%
   filter(!is.na(count)) %>%
   filter(!is.na(animal)) %>%
   filter(cage %in% c("C03","C04","C05","C06","C10","C11","C12","C13")) %>%
+  filter(treatment %in% c("OP","HT","HR","CT","CR","DT","DR","AN","T1","T2","T3")) %>%
   mutate(sample = factor(sample, levels = sample_metadata %>% 
-                                                    arrange(animal,match(treatment,rev(c("OP","HT","HR","CD","CR","DT","DR","AN","T1","T2","T3")))) %>% 
-                                                    select(sample) %>% 
-                                                    filter(!is.na(sample)) %>% 
-                                                    pull() ))  %>% # sort samples
+  arrange(animal,match(treatment,rev(c("OP","HT","HR","CT","CR","DT","DR","AN","T1","T2","T3")))) %>% 
+  select(sample) %>% 
+  filter(!is.na(sample)) %>% 
+  pull() ))  %>% # sort samples
   ggplot(., aes(x=count,y=sample, fill=phylum, group=phylum)) + #grouping enables keeping the same sorting of taxonomic units
     geom_bar(stat="identity", colour="white", linewidth=0.1) + #plot stacked bars with white borders
     scale_fill_manual(values=phylum_colors) +
