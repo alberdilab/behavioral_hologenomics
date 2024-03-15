@@ -3,6 +3,8 @@ prepare-the-r-environment
 environment
 libraries
 dominance-analysis
+model-testing
+model-prediction
 gwas-analysis
 association-analysis
 manhattan-plot

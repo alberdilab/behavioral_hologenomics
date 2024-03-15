@@ -16,8 +16,53 @@ tube_test_data <- read_csv("data/tube_tests.csv") %>%
       arrange(time)
 ```
 
+## Model testing
 
-```{r tube_test_modelling, warning=FALSE, comments="", message=FALSE, results='hide'}
+```{r tube_test_model_testing, warning=FALSE, comments="", message=FALSE, results='hide'}
+cages=c("C03","C04","C05","C06","C10","C11","C12","C13")
+
+model_performance1 <- data.frame()
+model_performance2 <- data.frame()
+for(cage in cages){
+    #Filter table by cage
+    cage_data <- tube_test_data %>% filter(cage_id == cage)
+    #Model with temporal autocorrelation (NULL if the model does not converge)
+    M1 <- tryCatch({glmmTMB(win_loss_binomial~1+(1|mouse)+(1|treatment:mouse), data = cage_data, family = binomial)}, warning = function(w){NULL})
+    M2 <- tryCatch({glmmTMB(win_loss_binomial~1+ar1(time+0|mouse)+(1|treatment:mouse), data = cage_data, family = binomial)}, warning = function(w){NULL})
+    M3 <- tryCatch({glmmTMB(win_loss_binomial~1+ar1(time+0|mouse), data = cage_data, family = binomial)}, warning = function(w){NULL})
+    M4 <- tryCatch({glmmTMB(win_loss_binomial~1+(1|mouse), data = cage_data, family = binomial)}, warning = function(w){NULL})
+    M5 <- tryCatch({glmmTMB(win_loss_binomial~1, data = cage_data, family = binomial)}, warning = function(w){NULL})
+    
+    aic <- c(M1=if(is.null(M1)){NA}else{AIC(M1)},
+             M2=if(is.null(M2)){NA}else{AIC(M2)},
+             M3=if(is.null(M3)){NA}else{AIC(M3)},
+             M4=if(is.null(M4)){NA}else{AIC(M4)},
+             M5=if(is.null(M5)){NA}else{AIC(M5)}) %>% sort()
+    
+    rank <- names(aic)
+             
+    # Append predictions to table
+    model_performance1 <- bind_rows(model_performance1,rank %>% as.data.frame() %>% t() %>% as.data.frame())
+    model_performance2 <- bind_rows(model_performance2,aic %>% as.data.frame() %>% t() %>% as.data.frame())
+}
+
+```
+
+```{r tube_test_model_testing_rank, warning=FALSE, comments="", message=FALSE, results='hide'}
+colnames(model_performance1) <- c("1","2","3","4","5")
+rownames(model_performance1) <- cages
+model_performance1 %>% tt()
+```
+
+```{r tube_test_model_testing_aic, warning=FALSE, comments="", message=FALSE, results='hide'}
+colnames(model_performance2) <- c("M1","M2","M3","M4","M5")
+rownames(model_performance2) <- cages
+model_performance2 %>% tt()
+```
+
+## Model prediction
+
+```{r tube_test_modelling_prediction, warning=FALSE, comments="", message=FALSE, results='hide'}
 cages=c("C03","C04","C05","C06","C10","C11","C12","C13")
 
 dominance_predictions <- data.frame()
@@ -25,24 +70,24 @@ dominance_predictions <- data.frame()
 for(cage in cages){
     #Filter table by cage
     cage_data <- tube_test_data %>% filter(cage_id == cage)
-    #Model with temporal autocorrelation
-    M1 <- tryCatch({glmmTMB(win_loss_binomial~1+ar1(time+0|mouse), data = cage_data,family = binomial)}, warning = function(w){NULL})
-    #odel without temporal autocorrelation
-    M2 <- glmmTMB(win_loss_binomial~1+(1|mouse), data = cage_data,family = binomial)
+    #Model with temporal autocorrelation (NULL if the model does not converge)
+    M3 <- tryCatch({glmmTMB(win_loss_binomial~1+ar1(time+0|mouse), data = cage_data,family = binomial)}, warning = function(w){NULL})
+    #Model without temporal autocorrelation
+    M4 <- glmmTMB(win_loss_binomial~1+(1|mouse), data = cage_data,family = binomial)
     
-    if(!is.null(M1)){
-          cage_data <- data.frame(ggpredict(M1, type = "random", terms = c("mouse","time")), model="M1", cage=cage)
+    if(!is.null(M3)){
+          cage_model <- data.frame(ggpredict(M3, type = "random", terms = c("mouse","time")), model="M3", cage=cage)
     }else{
-          cage_data <- data.frame(ggpredict(M2, type = "random", terms = "mouse"), model="M2", cage=cage)
-          cage_data <- bind_rows(cage_data %>% mutate(group = factor(1)),
-            cage_data %>% mutate(group = factor(2)),
-            cage_data %>% mutate(group = factor(3)),
-            cage_data %>% mutate(group = factor(4)),
-            cage_data %>% mutate(group = factor(5)),
-            cage_data %>% mutate(group = factor(6)))}
+          cage_model <- data.frame(ggpredict(M4, type = "random", terms = "mouse"), model="M4", cage=cage)
+          cage_model <- bind_rows(cage_model %>% mutate(group = factor(1)),
+            cage_model %>% mutate(group = factor(2)),
+            cage_model %>% mutate(group = factor(3)),
+            cage_model %>% mutate(group = factor(4)),
+            cage_model %>% mutate(group = factor(5)),
+            cage_model %>% mutate(group = factor(6)))}
     
     # Append predictions to table
-    dominance_predictions <- bind_rows(dominance_predictions,cage_data)
+    dominance_predictions <- bind_rows(dominance_predictions,cage_model)
 }
 
 dominance_predictions <- dominance_predictions %>%

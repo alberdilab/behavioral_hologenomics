@@ -1,4 +1,4 @@
-# Dominance-microbiome association
+# Dominance-microbiome modelling
 
 ```{r load_data_hmsc}
 load("data/data.Rdata")

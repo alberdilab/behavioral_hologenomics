@@ -2026,7 +2026,7 @@ color: #a52929;
 
 <ul class="summary">
 <li class="toc-logo"><a href="index.html" target="blank"><img src="docs/alberdilab_minilogo.png" alt="AlberdiLab logo"></a></li>
-<li align="center"><b>Hernandez et al. 2024</b></li>
+<li align="center"><b>Santos-Bay et al. 2024</b></li>
 
 <li class="divider"></li>
 <li class="part"><span><b>I INTRODUCTION</b></span></li>
@@ -2039,7 +2039,11 @@ color: #a52929;
 </ul></li>
 </ul></li>
 <li class="part"><span><b>II DOMINANCE ANALYSIS</b></span></li>
-<li class="chapter" data-level="2" data-path="dominance-analysis.html"><a href="dominance-analysis.html"><i class="fa fa-check"></i><b>2</b> Dominance analysis</a></li>
+<li class="chapter" data-level="2" data-path="dominance-analysis.html"><a href="dominance-analysis.html"><i class="fa fa-check"></i><b>2</b> Dominance analysis</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="dominance-analysis.html"><a href="dominance-analysis.html#model-testing"><i class="fa fa-check"></i><b>2.1</b> Model testing</a></li>
+<li class="chapter" data-level="2.2" data-path="dominance-analysis.html"><a href="dominance-analysis.html#model-prediction"><i class="fa fa-check"></i><b>2.2</b> Model prediction</a></li>
+</ul></li>
 <li class="part"><span><b>III GENOME ANALYSIS</b></span></li>
 <li class="chapter" data-level="3" data-path="gwas-analysis.html"><a href="gwas-analysis.html"><i class="fa fa-check"></i><b>3</b> GWAS analysis</a>
 <ul>
@@ -2134,88 +2138,88 @@ color: #a52929;
 <h1><span class="header-section-number">Chapter 3</span> GWAS analysis<a href="gwas-analysis.html#gwas-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <div id="association-analysis" class="section level3 hasAnchor" number="3.0.1">
 <h3><span class="header-section-number">3.0.1</span> Association analysis<a href="gwas-analysis.html#association-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb6-1"><a href="gwas-analysis.html#cb6-1" tabindex="-1"></a><span class="co"># SNP data</span></span>
-<span id="cb6-2"><a href="gwas-analysis.html#cb6-2" tabindex="-1"></a>X <span class="ot">=</span> <span class="fu">read.plink</span>(<span class="st">&quot;data/variants_filtered.bed&quot;</span>)</span>
-<span id="cb6-3"><a href="gwas-analysis.html#cb6-3" tabindex="-1"></a>X <span class="ot">=</span> <span class="fu">as</span>(X<span class="sc">$</span>genotypes,<span class="st">&#39;numeric&#39;</span>)</span>
-<span id="cb6-4"><a href="gwas-analysis.html#cb6-4" tabindex="-1"></a></span>
-<span id="cb6-5"><a href="gwas-analysis.html#cb6-5" tabindex="-1"></a><span class="co"># Metadata</span></span>
-<span id="cb6-6"><a href="gwas-analysis.html#cb6-6" tabindex="-1"></a>data <span class="ot">=</span> <span class="fu">read_table</span>(<span class="st">&quot;data/dominance_t1.tsv&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb6-7"><a href="gwas-analysis.html#cb6-7" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">cage=</span><span class="fu">factor</span>(cage)) <span class="sc">%&gt;%</span></span>
-<span id="cb6-8"><a href="gwas-analysis.html#cb6-8" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">mouse=</span><span class="fu">factor</span>(mouse)) <span class="sc">%&gt;%</span></span>
-<span id="cb6-9"><a href="gwas-analysis.html#cb6-9" tabindex="-1"></a>      <span class="fu">as.data.frame</span>()</span>
-<span id="cb6-10"><a href="gwas-analysis.html#cb6-10" tabindex="-1"></a></span>
-<span id="cb6-11"><a href="gwas-analysis.html#cb6-11" tabindex="-1"></a><span class="co"># Run GWAS</span></span>
-<span id="cb6-12"><a href="gwas-analysis.html#cb6-12" tabindex="-1"></a>gwas <span class="ot">=</span> <span class="fu">GridLMM_GWAS</span>(<span class="at">formula =</span> dominance <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>cage),</span>
-<span id="cb6-13"><a href="gwas-analysis.html#cb6-13" tabindex="-1"></a>                                  <span class="at">test_formula =</span> <span class="sc">~</span><span class="dv">1</span>,</span>
-<span id="cb6-14"><a href="gwas-analysis.html#cb6-14" tabindex="-1"></a>                                  <span class="at">reduced_formula =</span> <span class="sc">~</span><span class="dv">0</span>,</span>
-<span id="cb6-15"><a href="gwas-analysis.html#cb6-15" tabindex="-1"></a>                                  <span class="at">data =</span> data,</span>
-<span id="cb6-16"><a href="gwas-analysis.html#cb6-16" tabindex="-1"></a>                                  <span class="at">X =</span> X,</span>
-<span id="cb6-17"><a href="gwas-analysis.html#cb6-17" tabindex="-1"></a>                                  <span class="at">X_ID =</span> <span class="st">&#39;mouse&#39;</span>,</span>
-<span id="cb6-18"><a href="gwas-analysis.html#cb6-18" tabindex="-1"></a>                                  <span class="at">method =</span> <span class="st">&#39;REML&#39;</span>,</span>
-<span id="cb6-19"><a href="gwas-analysis.html#cb6-19" tabindex="-1"></a>                                  <span class="at">fillNAX =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb6-20"><a href="gwas-analysis.html#cb6-20" tabindex="-1"></a>                                  <span class="at">verbose =</span> F,</span>
-<span id="cb6-21"><a href="gwas-analysis.html#cb6-21" tabindex="-1"></a>                                  <span class="at">mc.cores =</span> <span class="dv">8</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb9-1"><a href="gwas-analysis.html#cb9-1" tabindex="-1"></a><span class="co"># SNP data</span></span>
+<span id="cb9-2"><a href="gwas-analysis.html#cb9-2" tabindex="-1"></a>X <span class="ot">=</span> <span class="fu">read.plink</span>(<span class="st">&quot;data/variants_filtered.bed&quot;</span>)</span>
+<span id="cb9-3"><a href="gwas-analysis.html#cb9-3" tabindex="-1"></a>X <span class="ot">=</span> <span class="fu">as</span>(X<span class="sc">$</span>genotypes,<span class="st">&#39;numeric&#39;</span>)</span>
+<span id="cb9-4"><a href="gwas-analysis.html#cb9-4" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="gwas-analysis.html#cb9-5" tabindex="-1"></a><span class="co"># Metadata</span></span>
+<span id="cb9-6"><a href="gwas-analysis.html#cb9-6" tabindex="-1"></a>data <span class="ot">=</span> <span class="fu">read_table</span>(<span class="st">&quot;data/dominance_t1.tsv&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb9-7"><a href="gwas-analysis.html#cb9-7" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">cage=</span><span class="fu">factor</span>(cage)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-8"><a href="gwas-analysis.html#cb9-8" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">mouse=</span><span class="fu">factor</span>(mouse)) <span class="sc">%&gt;%</span></span>
+<span id="cb9-9"><a href="gwas-analysis.html#cb9-9" tabindex="-1"></a>      <span class="fu">as.data.frame</span>()</span>
+<span id="cb9-10"><a href="gwas-analysis.html#cb9-10" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="gwas-analysis.html#cb9-11" tabindex="-1"></a><span class="co"># Run GWAS</span></span>
+<span id="cb9-12"><a href="gwas-analysis.html#cb9-12" tabindex="-1"></a>gwas <span class="ot">=</span> <span class="fu">GridLMM_GWAS</span>(<span class="at">formula =</span> dominance <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>cage),</span>
+<span id="cb9-13"><a href="gwas-analysis.html#cb9-13" tabindex="-1"></a>                                  <span class="at">test_formula =</span> <span class="sc">~</span><span class="dv">1</span>,</span>
+<span id="cb9-14"><a href="gwas-analysis.html#cb9-14" tabindex="-1"></a>                                  <span class="at">reduced_formula =</span> <span class="sc">~</span><span class="dv">0</span>,</span>
+<span id="cb9-15"><a href="gwas-analysis.html#cb9-15" tabindex="-1"></a>                                  <span class="at">data =</span> data,</span>
+<span id="cb9-16"><a href="gwas-analysis.html#cb9-16" tabindex="-1"></a>                                  <span class="at">X =</span> X,</span>
+<span id="cb9-17"><a href="gwas-analysis.html#cb9-17" tabindex="-1"></a>                                  <span class="at">X_ID =</span> <span class="st">&#39;mouse&#39;</span>,</span>
+<span id="cb9-18"><a href="gwas-analysis.html#cb9-18" tabindex="-1"></a>                                  <span class="at">method =</span> <span class="st">&#39;REML&#39;</span>,</span>
+<span id="cb9-19"><a href="gwas-analysis.html#cb9-19" tabindex="-1"></a>                                  <span class="at">fillNAX =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb9-20"><a href="gwas-analysis.html#cb9-20" tabindex="-1"></a>                                  <span class="at">verbose =</span> F,</span>
+<span id="cb9-21"><a href="gwas-analysis.html#cb9-21" tabindex="-1"></a>                                  <span class="at">mc.cores =</span> <span class="dv">8</span>)</span></code></pre></div>
 </div>
 <div id="manhattan-plot" class="section level3 hasAnchor" number="3.0.2">
 <h3><span class="header-section-number">3.0.2</span> Manhattan plot<a href="gwas-analysis.html#manhattan-plot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb7-1"><a href="gwas-analysis.html#cb7-1" tabindex="-1"></a><span class="co"># Prepare working table</span></span>
-<span id="cb7-2"><a href="gwas-analysis.html#cb7-2" tabindex="-1"></a>gwas_result <span class="ot">&lt;-</span> gwas<span class="sc">$</span>results <span class="sc">%&gt;%</span></span>
-<span id="cb7-3"><a href="gwas-analysis.html#cb7-3" tabindex="-1"></a>  <span class="co">#slice_sample(n=100000) %&gt;%</span></span>
-<span id="cb7-4"><a href="gwas-analysis.html#cb7-4" tabindex="-1"></a>  <span class="fu">separate</span>(X_ID, <span class="at">into =</span> <span class="fu">c</span>(<span class="st">&quot;chr&quot;</span>, <span class="st">&quot;bp&quot;</span>), <span class="at">sep =</span> <span class="st">&quot;_&quot;</span>, <span class="at">remove =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> <span class="co"># separate chromosome and position</span></span>
-<span id="cb7-5"><a href="gwas-analysis.html#cb7-5" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">bp=</span><span class="fu">as.numeric</span>(bp)) <span class="sc">%&gt;%</span></span>
-<span id="cb7-6"><a href="gwas-analysis.html#cb7-6" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">chr=</span><span class="fu">factor</span>(chr, <span class="at">levels=</span><span class="fu">c</span>(<span class="fu">c</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">19</span>),<span class="st">&quot;X&quot;</span>))) <span class="sc">%&gt;%</span></span>
-<span id="cb7-7"><a href="gwas-analysis.html#cb7-7" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">p=</span>p_value_REML) <span class="sc">%&gt;%</span></span>
-<span id="cb7-8"><a href="gwas-analysis.html#cb7-8" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.nan</span>(p))</span>
-<span id="cb7-9"><a href="gwas-analysis.html#cb7-9" tabindex="-1"></a></span>
-<span id="cb7-10"><a href="gwas-analysis.html#cb7-10" tabindex="-1"></a><span class="do">###</span></span>
-<span id="cb7-11"><a href="gwas-analysis.html#cb7-11" tabindex="-1"></a><span class="co"># Custom Manhattan</span></span>
-<span id="cb7-12"><a href="gwas-analysis.html#cb7-12" tabindex="-1"></a><span class="do">###</span></span>
-<span id="cb7-13"><a href="gwas-analysis.html#cb7-13" tabindex="-1"></a><span class="co"># https://r-graph-gallery.com/101_Manhattan_plot.html</span></span>
-<span id="cb7-14"><a href="gwas-analysis.html#cb7-14" tabindex="-1"></a></span>
-<span id="cb7-15"><a href="gwas-analysis.html#cb7-15" tabindex="-1"></a><span class="co"># Append chromosome coordinates</span></span>
-<span id="cb7-16"><a href="gwas-analysis.html#cb7-16" tabindex="-1"></a>gwas_result <span class="ot">&lt;-</span> gwas_result <span class="sc">%&gt;%</span></span>
-<span id="cb7-17"><a href="gwas-analysis.html#cb7-17" tabindex="-1"></a>    <span class="fu">group_by</span>(chr) <span class="sc">%&gt;%</span></span>
-<span id="cb7-18"><a href="gwas-analysis.html#cb7-18" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">chr_len=</span><span class="fu">max</span>(bp)) <span class="sc">%&gt;%</span></span>
-<span id="cb7-19"><a href="gwas-analysis.html#cb7-19" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">tot=</span><span class="fu">cumsum</span>(chr_len)<span class="sc">-</span>chr_len) <span class="sc">%&gt;%</span></span>
-<span id="cb7-20"><a href="gwas-analysis.html#cb7-20" tabindex="-1"></a>    <span class="fu">select</span>(<span class="sc">-</span>chr_len) <span class="sc">%&gt;%</span></span>
-<span id="cb7-21"><a href="gwas-analysis.html#cb7-21" tabindex="-1"></a>    <span class="fu">left_join</span>(gwas_result, ., <span class="at">by=</span><span class="fu">c</span>(<span class="st">&quot;chr&quot;</span><span class="ot">=</span><span class="st">&quot;chr&quot;</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb7-22"><a href="gwas-analysis.html#cb7-22" tabindex="-1"></a>    <span class="fu">arrange</span>(chr, bp) <span class="sc">%&gt;%</span></span>
-<span id="cb7-23"><a href="gwas-analysis.html#cb7-23" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">bp_cum=</span>bp<span class="sc">+</span>tot)</span>
-<span id="cb7-24"><a href="gwas-analysis.html#cb7-24" tabindex="-1"></a></span>
-<span id="cb7-25"><a href="gwas-analysis.html#cb7-25" tabindex="-1"></a><span class="co"># Append significance level</span></span>
-<span id="cb7-26"><a href="gwas-analysis.html#cb7-26" tabindex="-1"></a>gwas_result_unsig <span class="ot">&lt;-</span> gwas_result <span class="sc">%&gt;%</span></span>
-<span id="cb7-27"><a href="gwas-analysis.html#cb7-27" tabindex="-1"></a>    <span class="fu">filter</span>(p <span class="sc">&gt;</span> <span class="fl">0.000001</span>)</span>
-<span id="cb7-28"><a href="gwas-analysis.html#cb7-28" tabindex="-1"></a></span>
-<span id="cb7-29"><a href="gwas-analysis.html#cb7-29" tabindex="-1"></a><span class="co"># Generate chromosome number code</span></span>
-<span id="cb7-30"><a href="gwas-analysis.html#cb7-30" tabindex="-1"></a>axisdf <span class="ot">&lt;-</span> gwas_result <span class="sc">%&gt;%</span></span>
-<span id="cb7-31"><a href="gwas-analysis.html#cb7-31" tabindex="-1"></a>    <span class="fu">group_by</span>(chr) <span class="sc">%&gt;%</span></span>
-<span id="cb7-32"><a href="gwas-analysis.html#cb7-32" tabindex="-1"></a>    <span class="fu">summarize</span>(<span class="at">center=</span><span class="fu">mean</span>(bp_cum))</span>
-<span id="cb7-33"><a href="gwas-analysis.html#cb7-33" tabindex="-1"></a></span>
-<span id="cb7-34"><a href="gwas-analysis.html#cb7-34" tabindex="-1"></a><span class="co"># Plot gwas</span></span>
-<span id="cb7-35"><a href="gwas-analysis.html#cb7-35" tabindex="-1"></a><span class="fu">ggplot</span>(gwas_result_unsig, <span class="fu">aes</span>(<span class="at">x=</span>bp_cum, <span class="at">y=</span><span class="sc">-</span><span class="fu">log10</span>(p))) <span class="sc">+</span></span>
-<span id="cb7-36"><a href="gwas-analysis.html#cb7-36" tabindex="-1"></a>        <span class="co"># Show all points</span></span>
-<span id="cb7-37"><a href="gwas-analysis.html#cb7-37" tabindex="-1"></a>        <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">color=</span><span class="fu">as.factor</span>(chr)), <span class="at">alpha=</span><span class="fl">0.8</span>, <span class="at">size=</span><span class="fl">1.3</span>) <span class="sc">+</span></span>
-<span id="cb7-38"><a href="gwas-analysis.html#cb7-38" tabindex="-1"></a>        <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;grey&quot;</span>, <span class="st">&quot;skyblue&quot;</span>), <span class="dv">22</span> )) <span class="sc">+</span></span>
-<span id="cb7-39"><a href="gwas-analysis.html#cb7-39" tabindex="-1"></a>        <span class="co"># Show significant points</span></span>
-<span id="cb7-40"><a href="gwas-analysis.html#cb7-40" tabindex="-1"></a>        <span class="fu">geom_point</span>(<span class="at">data=</span>gwas_result_sig, <span class="fu">aes</span>(<span class="at">x=</span>bp_cum, <span class="at">y=</span><span class="sc">-</span><span class="fu">log10</span>(p)), <span class="at">color=</span><span class="st">&quot;#FFB91F&quot;</span>, <span class="at">shape=</span><span class="dv">17</span>, <span class="at">alpha=</span><span class="fl">0.9</span>, <span class="at">size=</span><span class="fl">1.6</span>) <span class="sc">+</span></span>
-<span id="cb7-41"><a href="gwas-analysis.html#cb7-41" tabindex="-1"></a>        <span class="co"># custom X axis:</span></span>
-<span id="cb7-42"><a href="gwas-analysis.html#cb7-42" tabindex="-1"></a>        <span class="fu">scale_x_continuous</span>(<span class="at">label =</span> axisdf<span class="sc">$</span>chr, <span class="at">breaks=</span> axisdf<span class="sc">$</span>center, <span class="at">expand =</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.01</span>)) <span class="sc">+</span></span>
-<span id="cb7-43"><a href="gwas-analysis.html#cb7-43" tabindex="-1"></a>        <span class="fu">scale_y_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.04</span>)) <span class="sc">+</span></span>
-<span id="cb7-44"><a href="gwas-analysis.html#cb7-44" tabindex="-1"></a>        <span class="co"># Custom the theme:</span></span>
-<span id="cb7-45"><a href="gwas-analysis.html#cb7-45" tabindex="-1"></a>        <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb7-46"><a href="gwas-analysis.html#cb7-46" tabindex="-1"></a>        <span class="fu">labs</span>(<span class="at">x=</span><span class="st">&quot;Chromosome&quot;</span>) <span class="sc">+</span></span>
-<span id="cb7-47"><a href="gwas-analysis.html#cb7-47" tabindex="-1"></a>        <span class="fu">theme</span>(</span>
-<span id="cb7-48"><a href="gwas-analysis.html#cb7-48" tabindex="-1"></a>          <span class="at">legend.position=</span><span class="st">&quot;none&quot;</span>,</span>
-<span id="cb7-49"><a href="gwas-analysis.html#cb7-49" tabindex="-1"></a>          <span class="at">panel.border =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb7-50"><a href="gwas-analysis.html#cb7-50" tabindex="-1"></a>          <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb7-51"><a href="gwas-analysis.html#cb7-51" tabindex="-1"></a>          <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
-<span id="cb7-52"><a href="gwas-analysis.html#cb7-52" tabindex="-1"></a>        )</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb10-1"><a href="gwas-analysis.html#cb10-1" tabindex="-1"></a><span class="co"># Prepare working table</span></span>
+<span id="cb10-2"><a href="gwas-analysis.html#cb10-2" tabindex="-1"></a>gwas_result <span class="ot">&lt;-</span> gwas<span class="sc">$</span>results <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="gwas-analysis.html#cb10-3" tabindex="-1"></a>  <span class="co">#slice_sample(n=100000) %&gt;%</span></span>
+<span id="cb10-4"><a href="gwas-analysis.html#cb10-4" tabindex="-1"></a>  <span class="fu">separate</span>(X_ID, <span class="at">into =</span> <span class="fu">c</span>(<span class="st">&quot;chr&quot;</span>, <span class="st">&quot;bp&quot;</span>), <span class="at">sep =</span> <span class="st">&quot;_&quot;</span>, <span class="at">remove =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> <span class="co"># separate chromosome and position</span></span>
+<span id="cb10-5"><a href="gwas-analysis.html#cb10-5" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">bp=</span><span class="fu">as.numeric</span>(bp)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-6"><a href="gwas-analysis.html#cb10-6" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">chr=</span><span class="fu">factor</span>(chr, <span class="at">levels=</span><span class="fu">c</span>(<span class="fu">c</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">19</span>),<span class="st">&quot;X&quot;</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb10-7"><a href="gwas-analysis.html#cb10-7" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">p=</span>p_value_REML) <span class="sc">%&gt;%</span></span>
+<span id="cb10-8"><a href="gwas-analysis.html#cb10-8" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.nan</span>(p))</span>
+<span id="cb10-9"><a href="gwas-analysis.html#cb10-9" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="gwas-analysis.html#cb10-10" tabindex="-1"></a><span class="do">###</span></span>
+<span id="cb10-11"><a href="gwas-analysis.html#cb10-11" tabindex="-1"></a><span class="co"># Custom Manhattan</span></span>
+<span id="cb10-12"><a href="gwas-analysis.html#cb10-12" tabindex="-1"></a><span class="do">###</span></span>
+<span id="cb10-13"><a href="gwas-analysis.html#cb10-13" tabindex="-1"></a><span class="co"># https://r-graph-gallery.com/101_Manhattan_plot.html</span></span>
+<span id="cb10-14"><a href="gwas-analysis.html#cb10-14" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="gwas-analysis.html#cb10-15" tabindex="-1"></a><span class="co"># Append chromosome coordinates</span></span>
+<span id="cb10-16"><a href="gwas-analysis.html#cb10-16" tabindex="-1"></a>gwas_result <span class="ot">&lt;-</span> gwas_result <span class="sc">%&gt;%</span></span>
+<span id="cb10-17"><a href="gwas-analysis.html#cb10-17" tabindex="-1"></a>    <span class="fu">group_by</span>(chr) <span class="sc">%&gt;%</span></span>
+<span id="cb10-18"><a href="gwas-analysis.html#cb10-18" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">chr_len=</span><span class="fu">max</span>(bp)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-19"><a href="gwas-analysis.html#cb10-19" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">tot=</span><span class="fu">cumsum</span>(chr_len)<span class="sc">-</span>chr_len) <span class="sc">%&gt;%</span></span>
+<span id="cb10-20"><a href="gwas-analysis.html#cb10-20" tabindex="-1"></a>    <span class="fu">select</span>(<span class="sc">-</span>chr_len) <span class="sc">%&gt;%</span></span>
+<span id="cb10-21"><a href="gwas-analysis.html#cb10-21" tabindex="-1"></a>    <span class="fu">left_join</span>(gwas_result, ., <span class="at">by=</span><span class="fu">c</span>(<span class="st">&quot;chr&quot;</span><span class="ot">=</span><span class="st">&quot;chr&quot;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-22"><a href="gwas-analysis.html#cb10-22" tabindex="-1"></a>    <span class="fu">arrange</span>(chr, bp) <span class="sc">%&gt;%</span></span>
+<span id="cb10-23"><a href="gwas-analysis.html#cb10-23" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">bp_cum=</span>bp<span class="sc">+</span>tot)</span>
+<span id="cb10-24"><a href="gwas-analysis.html#cb10-24" tabindex="-1"></a></span>
+<span id="cb10-25"><a href="gwas-analysis.html#cb10-25" tabindex="-1"></a><span class="co"># Append significance level</span></span>
+<span id="cb10-26"><a href="gwas-analysis.html#cb10-26" tabindex="-1"></a>gwas_result_unsig <span class="ot">&lt;-</span> gwas_result <span class="sc">%&gt;%</span></span>
+<span id="cb10-27"><a href="gwas-analysis.html#cb10-27" tabindex="-1"></a>    <span class="fu">filter</span>(p <span class="sc">&gt;</span> <span class="fl">0.000001</span>)</span>
+<span id="cb10-28"><a href="gwas-analysis.html#cb10-28" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="gwas-analysis.html#cb10-29" tabindex="-1"></a><span class="co"># Generate chromosome number code</span></span>
+<span id="cb10-30"><a href="gwas-analysis.html#cb10-30" tabindex="-1"></a>axisdf <span class="ot">&lt;-</span> gwas_result <span class="sc">%&gt;%</span></span>
+<span id="cb10-31"><a href="gwas-analysis.html#cb10-31" tabindex="-1"></a>    <span class="fu">group_by</span>(chr) <span class="sc">%&gt;%</span></span>
+<span id="cb10-32"><a href="gwas-analysis.html#cb10-32" tabindex="-1"></a>    <span class="fu">summarize</span>(<span class="at">center=</span><span class="fu">mean</span>(bp_cum))</span>
+<span id="cb10-33"><a href="gwas-analysis.html#cb10-33" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="gwas-analysis.html#cb10-34" tabindex="-1"></a><span class="co"># Plot gwas</span></span>
+<span id="cb10-35"><a href="gwas-analysis.html#cb10-35" tabindex="-1"></a><span class="fu">ggplot</span>(gwas_result_unsig, <span class="fu">aes</span>(<span class="at">x=</span>bp_cum, <span class="at">y=</span><span class="sc">-</span><span class="fu">log10</span>(p))) <span class="sc">+</span></span>
+<span id="cb10-36"><a href="gwas-analysis.html#cb10-36" tabindex="-1"></a>        <span class="co"># Show all points</span></span>
+<span id="cb10-37"><a href="gwas-analysis.html#cb10-37" tabindex="-1"></a>        <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">color=</span><span class="fu">as.factor</span>(chr)), <span class="at">alpha=</span><span class="fl">0.8</span>, <span class="at">size=</span><span class="fl">1.3</span>) <span class="sc">+</span></span>
+<span id="cb10-38"><a href="gwas-analysis.html#cb10-38" tabindex="-1"></a>        <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;grey&quot;</span>, <span class="st">&quot;skyblue&quot;</span>), <span class="dv">22</span> )) <span class="sc">+</span></span>
+<span id="cb10-39"><a href="gwas-analysis.html#cb10-39" tabindex="-1"></a>        <span class="co"># Show significant points</span></span>
+<span id="cb10-40"><a href="gwas-analysis.html#cb10-40" tabindex="-1"></a>        <span class="fu">geom_point</span>(<span class="at">data=</span>gwas_result_sig, <span class="fu">aes</span>(<span class="at">x=</span>bp_cum, <span class="at">y=</span><span class="sc">-</span><span class="fu">log10</span>(p)), <span class="at">color=</span><span class="st">&quot;#FFB91F&quot;</span>, <span class="at">shape=</span><span class="dv">17</span>, <span class="at">alpha=</span><span class="fl">0.9</span>, <span class="at">size=</span><span class="fl">1.6</span>) <span class="sc">+</span></span>
+<span id="cb10-41"><a href="gwas-analysis.html#cb10-41" tabindex="-1"></a>        <span class="co"># custom X axis:</span></span>
+<span id="cb10-42"><a href="gwas-analysis.html#cb10-42" tabindex="-1"></a>        <span class="fu">scale_x_continuous</span>(<span class="at">label =</span> axisdf<span class="sc">$</span>chr, <span class="at">breaks=</span> axisdf<span class="sc">$</span>center, <span class="at">expand =</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.01</span>)) <span class="sc">+</span></span>
+<span id="cb10-43"><a href="gwas-analysis.html#cb10-43" tabindex="-1"></a>        <span class="fu">scale_y_continuous</span>(<span class="at">expand =</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.04</span>)) <span class="sc">+</span></span>
+<span id="cb10-44"><a href="gwas-analysis.html#cb10-44" tabindex="-1"></a>        <span class="co"># Custom the theme:</span></span>
+<span id="cb10-45"><a href="gwas-analysis.html#cb10-45" tabindex="-1"></a>        <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb10-46"><a href="gwas-analysis.html#cb10-46" tabindex="-1"></a>        <span class="fu">labs</span>(<span class="at">x=</span><span class="st">&quot;Chromosome&quot;</span>) <span class="sc">+</span></span>
+<span id="cb10-47"><a href="gwas-analysis.html#cb10-47" tabindex="-1"></a>        <span class="fu">theme</span>(</span>
+<span id="cb10-48"><a href="gwas-analysis.html#cb10-48" tabindex="-1"></a>          <span class="at">legend.position=</span><span class="st">&quot;none&quot;</span>,</span>
+<span id="cb10-49"><a href="gwas-analysis.html#cb10-49" tabindex="-1"></a>          <span class="at">panel.border =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb10-50"><a href="gwas-analysis.html#cb10-50" tabindex="-1"></a>          <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb10-51"><a href="gwas-analysis.html#cb10-51" tabindex="-1"></a>          <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb10-52"><a href="gwas-analysis.html#cb10-52" tabindex="-1"></a>        )</span></code></pre></div>
 </div>
 <div id="candidate-gene-extraction" class="section level3 hasAnchor" number="3.0.3">
 <h3><span class="header-section-number">3.0.3</span> Candidate gene extraction<a href="gwas-analysis.html#candidate-gene-extraction" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb8-1"><a href="gwas-analysis.html#cb8-1" tabindex="-1"></a>gwas<span class="sc">$</span>results <span class="sc">%&gt;%</span></span>
-<span id="cb8-2"><a href="gwas-analysis.html#cb8-2" tabindex="-1"></a>  <span class="fu">filter</span>(p_value_REML <span class="sc">&lt;</span> <span class="fl">0.000001</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb8-3"><a href="gwas-analysis.html#cb8-3" tabindex="-1"></a>  <span class="fu">write.table</span>(., <span class="at">file=</span><span class="st">&quot;results/gwas_dominance_t1.tsv&quot;</span>, <span class="at">col.names=</span>T, <span class="at">row.names=</span>F, <span class="at">sep=</span><span class="st">&quot;</span><span class="sc">\t</span><span class="st">&quot;</span>, <span class="at">quote=</span><span class="cn">FALSE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb11-1"><a href="gwas-analysis.html#cb11-1" tabindex="-1"></a>gwas<span class="sc">$</span>results <span class="sc">%&gt;%</span></span>
+<span id="cb11-2"><a href="gwas-analysis.html#cb11-2" tabindex="-1"></a>  <span class="fu">filter</span>(p_value_REML <span class="sc">&lt;</span> <span class="fl">0.000001</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-3"><a href="gwas-analysis.html#cb11-3" tabindex="-1"></a>  <span class="fu">write.table</span>(., <span class="at">file=</span><span class="st">&quot;results/gwas_dominance_t1.tsv&quot;</span>, <span class="at">col.names=</span>T, <span class="at">row.names=</span>F, <span class="at">sep=</span><span class="st">&quot;</span><span class="sc">\t</span><span class="st">&quot;</span>, <span class="at">quote=</span><span class="cn">FALSE</span>)</span></code></pre></div>
 </div>
 </div>
             </section>
