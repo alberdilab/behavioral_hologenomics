@@ -1,5 +1,5 @@
 # (PART) DOMINANCE ANALYSIS {-}
-# Dominance analysis
+# Data preparation
 
 ```{r load_data_tube_tests, warning=FALSE, comments="", message=FALSE, results='hide'}
 tube_test_data <- read_csv("data/tube_tests.csv") %>%
@@ -16,7 +16,15 @@ tube_test_data <- read_csv("data/tube_tests.csv") %>%
       arrange(time)
 ```
 
-## Model testing
+```{r previsualise_tube_test_data, warning=FALSE, comments="", message=FALSE}
+tube_test_data %>%
+  head() %>%
+  tt() |> 
+      style_tt(j = 1, color = "#6e0f0f", background = "#e39d9d") |> 
+      style_tt(i = 0, color = "white", background = "#a52929")
+```
+
+# Model testing
 
 ```{r tube_test_model_testing, warning=FALSE, comments="", message=FALSE, results='hide'}
 cages=c("C03","C04","C05","C06","C10","C11","C12","C13")
@@ -48,19 +56,30 @@ for(cage in cages){
 
 ```
 
-```{r tube_test_model_testing_rank, warning=FALSE, comments="", message=FALSE, results='hide'}
-colnames(model_performance1) <- c("1","2","3","4","5")
-rownames(model_performance1) <- cages
-model_performance1 %>% tt()
-```
+## Model performance
 
-```{r tube_test_model_testing_aic, warning=FALSE, comments="", message=FALSE, results='hide'}
+```{r tube_test_model_testing_aic, warning=FALSE, comments="", message=FALSE}
 colnames(model_performance2) <- c("M1","M2","M3","M4","M5")
 rownames(model_performance2) <- cages
-model_performance2 %>% tt()
+model_performance2 %>% 
+  rownames_to_column(var="Cage") %>%
+  tt() |> 
+      style_tt(j = 1, color = "#6e0f0f", background = "#e39d9d") |> 
+      style_tt(i = 0, color = "white", background = "#a52929")
 ```
 
-## Model prediction
+## Model rank
+
+```{r tube_test_model_testing_rank, warning=FALSE, comments="", message=FALSE}
+colnames(model_performance1) <- c("1","2","3","4","5")
+rownames(model_performance1) <- cages
+model_performance1 %>% 
+  rownames_to_column(var="Cage") %>%
+  tt() |> 
+      style_tt(j = 1, color = "#6e0f0f", background = "#e39d9d") |> 
+      style_tt(i = 0, color = "white", background = "#a52929")
+```
+# Model prediction
 
 ```{r tube_test_modelling_prediction, warning=FALSE, comments="", message=FALSE, results='hide'}
 cages=c("C03","C04","C05","C06","C10","C11","C12","C13")
@@ -102,7 +121,9 @@ dominance_predictions <- dominance_predictions %>%
       rename(mouse=x, dominance=predicted, time=group)
 ```
 
-```{r dominance_visualisation, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
+## Dominance visualisation
+
+```{r dominance_visualisation, warning=FALSE, comments="", message=FALSE, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
 dominance_predictions %>%
     mutate(time = as.numeric(substr(time, 2, 2))) %>%
     mutate(mouse_number = substr(mouse, 5, 5)) %>%
@@ -114,4 +135,37 @@ dominance_predictions %>%
       facet_wrap(cage ~ ., ncol=4) + 
       theme_minimal()+
       theme(legend.position = "none")
+
+```
+
+## Hierarchy stability
+
+```{r dominance_visualisation, , warning=FALSE, comments="", message=FALSE}
+cages=c("C03","C04","C05","C06","C10","C11","C12","C13")
+
+hierarchy_stability <- c()
+  
+for(cage_code in cages){
+    dominance_predictions_cage <- dominance_predictions %>% 
+        filter(cage == cage_code) %>% 
+        select(mouse,dominance,time) %>% 
+        pivot_wider(names_from="time",values_from="dominance")%>% 
+        select(-mouse)
+    
+    correlation_coefficients <- numeric(length = 5)
+    for (i in 1:5) {
+      correlation_coefficients[i] <- cor(dominance_predictions_cage[, i], dominance_predictions_cage[, i + 1], method = "spearman")
+    }
+    hierarchy_stability <- c(hierarchy_stability,mean(correlation_coefficients))
+}
+
+names(hierarchy_stability) <- cages
+
+hierarchy_stability %>% 
+    as.data.frame() %>% t() %>% as.data.frame() %>%
+    tt() |> 
+      style_tt(i = 0, color = "white", background = "#a52929")
+
+mean(hierarchy_stability)
+sd(hierarchy_stability)
 ```

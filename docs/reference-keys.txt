@@ -2,9 +2,13 @@ project-description
 prepare-the-r-environment
 environment
 libraries
-dominance-analysis
+data-preparation
 model-testing
+model-performance
+model-rank
 model-prediction
+dominance-visualisation
+hierarchy-stability
 gwas-analysis
 association-analysis
 manhattan-plot
