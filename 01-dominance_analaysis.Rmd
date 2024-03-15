@@ -1,0 +1,72 @@
+# (PART) DOMINANCE ANALYSIS {-}
+# Dominance analysis
+
+```{r load_data_tube_tests, warning=FALSE, comments="", message=FALSE, results='hide'}
+tube_test_data <- read_csv("data/tube_tests.csv") %>%
+      mutate(mouse = substr(mouse, 1, 5)) %>%
+      mutate(cage_id = paste0("C", cage_id)) %>%
+      mutate(time = factor(case_when(
+          treatment == "t1" ~ 1,
+          treatment == "t2" ~ 2,
+          treatment == "t3" ~ 3,
+          treatment == "t4" ~ 4,
+          treatment == "t5" ~ 5,
+          treatment == "t6" ~ 6,
+          TRUE ~ NA))) %>%
+      arrange(time)
+```
+
+
+```{r tube_test_modelling, warning=FALSE, comments="", message=FALSE, results='hide'}
+cages=c("C03","C04","C05","C06","C10","C11","C12","C13")
+
+dominance_predictions <- data.frame()
+  
+for(cage in cages){
+    #Filter table by cage
+    cage_data <- tube_test_data %>% filter(cage_id == cage)
+    #Model with temporal autocorrelation
+    M1 <- tryCatch({glmmTMB(win_loss_binomial~1+ar1(time+0|mouse), data = cage_data,family = binomial)}, warning = function(w){NULL})
+    #odel without temporal autocorrelation
+    M2 <- glmmTMB(win_loss_binomial~1+(1|mouse), data = cage_data,family = binomial)
+    
+    if(!is.null(M1)){
+          cage_data <- data.frame(ggpredict(M1, type = "random", terms = c("mouse","time")), model="M1", cage=cage)
+    }else{
+          cage_data <- data.frame(ggpredict(M2, type = "random", terms = "mouse"), model="M2", cage=cage)
+          cage_data <- bind_rows(cage_data %>% mutate(group = factor(1)),
+            cage_data %>% mutate(group = factor(2)),
+            cage_data %>% mutate(group = factor(3)),
+            cage_data %>% mutate(group = factor(4)),
+            cage_data %>% mutate(group = factor(5)),
+            cage_data %>% mutate(group = factor(6)))}
+    
+    # Append predictions to table
+    dominance_predictions <- bind_rows(dominance_predictions,cage_data)
+}
+
+dominance_predictions <- dominance_predictions %>%
+      mutate(group = factor(case_when(
+          group == 1 ~ "t1",
+          group == 2 ~ "t2",
+          group == 3 ~ "t3",
+          group == 4 ~ "t4",
+          group == 5 ~ "t5",
+          group == 6 ~ "t6",
+          TRUE ~ NA))) %>%
+      rename(mouse=x, dominance=predicted, time=group)
+```
+
+```{r dominance_visualisation, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
+dominance_predictions %>%
+    mutate(time = as.numeric(substr(time, 2, 2))) %>%
+    mutate(mouse_number = substr(mouse, 5, 5)) %>%
+    ggplot(aes(x=time,y=dominance, group=mouse, color=mouse_number)) +
+      geom_line(size=1) +
+      scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c","#2e2e33","#2e7287"))+
+      scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1)) +
+      scale_x_continuous(breaks = c(1:6)) +
+      facet_wrap(cage ~ ., ncol=4) + 
+      theme_minimal()+
+      theme(legend.position = "none")
+```

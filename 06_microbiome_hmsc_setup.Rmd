@@ -1,0 +1,268 @@
+# Dominance-microbiome association
+
+```{r load_data_hmsc}
+load("data/data.Rdata")
+```
+
+### HMSC modelling
+
+### Prepare input for Hmsc
+Hmsc requires input object to be formatted in a very specific way. In the following chunk the random effects, fixed effects, read counts and genome phylogeny are declared.
+
+
+```{r hmsc_input, warning=FALSE, comments="", message=FALSE}
+# Random effects data (study design)
+StudyDesign <- sample_metadata %>%
+                    filter(!is.na(dominance)) %>%
+                    select(sample,animal,cage) %>%
+                    mutate(cage = factor(cage)) %>%
+                    mutate(animal = factor(animal)) %>%
+                    distinct() %>%
+                    column_to_rownames("sample")
+
+# Genome count table (quantitative community data)
+YData <- read_counts  %>%
+                    select(all_of(c("genome",rownames(StudyDesign)))) %>%
+                    mutate(across(where(is.numeric), ~ . +1 )) %>% #add +1 pseudocount to remove zeros
+                    mutate(across(where(is.numeric), ~ . / (genome_metadata$length / 150) )) %>% #transform to genome counts
+                    mutate(across(where(is.numeric), ~  log(.) )) %>% #log-transform
+                    column_to_rownames("genome") %>%
+                    select(all_of(row.names(StudyDesign))) %>%  #filter only faecal samples
+                    as.data.frame() %>%
+                    t() # transpose
+
+# Fixed effects data (explanatory variables)
+XData <- sample_metadata %>%
+                    filter(sample %in% rownames(StudyDesign)) %>%
+                    distinct() %>%
+                    select(sample,group,dominance) %>%
+                    mutate(logseqdepth=read_counts %>% #total log-sequencing depth
+                        select(all_of(row.names(StudyDesign))) %>%
+                        colSums() %>%
+                        log()
+                    ) %>%
+                    mutate(group = factor(group)) %>%
+                    column_to_rownames("sample")
+
+# Genome phylogeny
+PData <- genome_tree
+```
+
+### Define formulas of the Hmsc model
+Once the input data are ready, it is time for defining the formulas that will structure the model. In our case, the temporal dynamic of microbial communities will be modelled in light of the dominance indices of mice, while adding group (variable or invariable environment) and log-sequencing depth (the sequencing effort per sample) as covariates. Lastly, animal ID and cage ID are declared as random effects to control for the longitudinal aspect of the study (multiple samples per animal) and the housing structure (5 animals per cage).
+
+```{r hmsc_formulas, warning=FALSE, comments="", message=FALSE}
+
+# Fixed effects formula
+XFormula1 = ~dominance + group + logseqdepth
+
+# Study design
+rL.animal = HmscRandomLevel(units = levels(StudyDesign$animal))
+rL.cage = HmscRandomLevel(units = levels(StudyDesign$cage))
+```
+
+### Define and Hmsc models
+The following chunk generates the Hmsc model that we will later fit in the high computation cluster. In this case there will be a single model called 'model1'.
+
+```{r hmsc_models, warning=FALSE, comments="", message=FALSE}
+#Define models
+model1 = Hmsc(Y=YData,
+         XData = XData,
+         XFormula = XFormula1,
+         studyDesign = StudyDesign,
+         phyloTree = PData,
+         ranLevels = list("animal"=rL.animal, "cage"=rL.cage),
+         distr = "normal",
+         YScale = TRUE)
+
+#Save list of models as an R object.
+model_list = list(model1=model1)
+if (!dir.exists("hmsc")){dir.create("hmsc")}
+save(model_list, file = "hmsc/hmsc.Rdata")
+```
+
+
+Upload **hmsc/hmsc.Rdata** to the HPC respecting the directory structure.
+
+## Define MCMC
+The next step is to define the parameters of the MCMC process for model fitting. In this case we opt for a single number of samplings (250), two thinning values (1 and 10), and 4 chains. This means that once the burn-in part is removed, each of the four MCMC chains will be sampled 250 times either with an interval of 1 or 10 iterations. Note that the 4x250x10 option is about 10 times slower than 4x250x1, although the probability for parameter convergence is increased.
+
+```{r hmsc_mcmc, warning=FALSE, comments="", message=FALSE}
+# How often to sample the MCMC
+MCMC_samples_list = 250
+
+# The number of MCMC steps between each recording sample
+MCMC_thin_list = c(1, 10)
+
+# The number of MCMC chains to use
+nChains = 4
+```
+
+### Generate Hmsc executables
+
+The next chunk generates shell files for every combination of model, MCMC samples and MCMC thinning, ready to be launched as SLURM jobs. This is because Hmsc requires a notable amount of memory and long computation times, which renders impossible to run most fitting processes in personal computers. 
+
+```{r hmsc_executables, warning=FALSE, comments="", message=FALSE}
+
+modelchains <- expand.grid(model = names(model_list), sample = MCMC_samples_list, thin = MCMC_thin_list)
+
+if (!dir.exists("hmsc")){dir.create("hmsc")}
+for(i in c(1:nrow(modelchains))){
+      modelname=as.character(modelchains[i,1])
+      sample=modelchains[i,2]
+      thin=modelchains[i,3]
+      executablename <- paste0("hmsc/exe_",modelname,"_",sample,"_",thin,".sh")
+      fitname <- paste0("hmsc/fit_",modelname,"_",sample,"_",thin,".Rdata")
+      convname <- paste0("hmsc/conv_",modelname,"_",sample,"_",thin,".Rdata")
+      model <- paste0('model_list$',modelname)
+      psrf.beta.name <-  paste0("psrf.beta.",modelname,"_",sample,"_",thin)
+      psrf.gamma.name <-  paste0("psrf.gamma.",modelname,"_",sample,"_",thin)
+      psrf.rho.name <-  paste0("psrf.rho.",modelname,"_",sample,"_",thin)
+      jobname <- paste0("hmsc_",modelname,"_",sample,"_",thin)
+      minutes <- round(sample * thin * (ncol(YData) * nrow(YData)/50000), 0)
+      code <- sprintf("#!/bin/bash
+#SBATCH --job-name=%s                   # Job name
+#SBATCH --nodes=1
+#SBATCH --ntasks=4                      # Run on 4 CPUs
+#SBATCH --mail-user=antton.alberdi@sund.ku.dk
+#SBATCH --mem=800gb                      # Job memory request
+#SBATCH --time=%d                       # In minutes
+
+# Activate conda environment
+module load mamba/1.3.1
+source activate /maps/projects/mjolnir1/people/jpl786/AMAC001_fibre_trial/hmsc/hmsc_env
+
+# Run R script
+Rscript -e '
+library(tidyverse)
+library(Hmsc)
+# Load formulas and data
+load(\"hmsc/hmsc.Rdata\")
+
+# Declare placeholders
+modelname = \"%s\"
+model = %s
+fitname = \"%s\"
+convname = \"%s\"
+sample = %d
+thin = %d
+nchains = %d
+
+# Run model fitting
+m = sampleMcmc(hM = model,
+         samples = sample,
+         thin = thin,
+         adaptNf=rep(ceiling(0.4*sample*thin),model$nr),
+         transient = ceiling(0.5*sample*thin),
+         nChains = nchains,
+         nParallel = nchains)
+
+# Assess chain convergence
+mpost = convertToCodaObject(m,
+      spNamesNumbers = c(T,F),
+      covNamesNumbers = c(T,F),
+      Beta = TRUE,
+      Gamma = TRUE,
+      V = FALSE,
+      Sigma = FALSE,
+      Rho = TRUE,
+      Eta = FALSE,
+      Lambda = FALSE,
+      Alpha = FALSE,
+      Omega = FALSE,
+      Psi = FALSE,
+      Delta = FALSE) # Convert to CODA object
+
+# Fixed effects
+assign(paste0(\"psrf.beta.\", modelname,\"_\",sample,\"_\",thin), gelman.diag(mpost$Beta,multivariate=FALSE)$psrf)
+
+# Traits
+assign(paste0(\"psrf.gamma.\", modelname,\"_\",sample,\"_\",thin), gelman.diag(mpost$Gamma,multivariate=FALSE)$psrf)
+
+# Phylogeny
+assign(paste0(\"psrf.rho.\", modelname,\"_\",sample,\"_\",thin), gelman.diag(mpost$Rho,multivariate=FALSE)$psrf)
+
+# Write convergence data
+save(%s, %s, %s, file=convname)
+
+# Save model fit object
+save(m, file=fitname)
+'
+", jobname, minutes, modelname, model, fitname, convname, sample, thin, nChains, psrf.beta.name, psrf.gamma.name, psrf.rho.name)
+      writeLines(code, executablename)
+    }
+```
+
+Upload the produced **hmsc/exe_XXXXX.sh** files to the HPC respecting the directory structure.
+
+### Fit Hmsc models (in Mjolnir HPC)
+
+Launch the SLURM jobs by using:
+
+```{sh, eval=FALSE}
+# Submit all .sh files in the hmsc folder
+for jobfile in hmsc/exe_*.sh; do
+    sbatch "$jobfile"
+done
+
+#Or launch them one by one only the ones you want to launch
+sbatch hmsc/exe_model1_250_1.sh
+sbatch hmsc/exe_model1_250_10.sh
+```
+
+When the task is done download the produced **hmsc/conv_XXXXX.Rdata** and **hmsc/fit_XXXXX.Rdata** files to your computer. The 'conv' file only contains the information required for assessing model convergence, while the file 'fit' contains all the information of the fitted model, hence its large size. 
+
+### Assess chain convergence
+
+The 'conv' file is used to assess whether the multiple MCMC chains ran for model fitting converged, i.e., whether all parameters reached similar values. Convergence diagnostic values substantially above 1 indicate lack of convergence, while values below 1.1 are usually considered good enough.
+
+```{r hmsc_convergence, eval=FALSE, warning=FALSE, comments="", message=FALSE}
+
+# Load all conv file available in the hmsc folder
+list.files(path = "hmsc", pattern = "^conv_", full.names = TRUE, include.dirs = TRUE) %>%
+  lapply(.,load,.GlobalEnv)
+
+# Create a merged psrf.beta (genome) plot
+ls() %>%
+        grep("^psrf\\.beta", ., value = TRUE) %>%
+        map_dfr(~ {
+         mat <- get(.x)
+          data.frame(modelchain = .x, as.data.frame(mat, , stringsAsFactors = FALSE)) %>%
+              rownames_to_column(var="parameter") %>%
+              mutate(model = str_split(modelchain, "_") %>% map_chr(1) %>% gsub("psrf.beta.","",.)) %>%
+              mutate(sample = str_split(modelchain, "_") %>% map_chr(2)) %>% #extract sample info from model name
+              mutate(thin = str_split(modelchain, "_") %>% map_chr(3)) #extract thin info from model name
+      }) %>%
+      ggplot(.,aes(x=reorder(modelchain,-Point.est.,fun=function(x) {quantile(x, probs = 0.9)}),y=Point.est.)) +
+        geom_violin(fill="#b8d9e3", color="#328da8") +
+        geom_jitter(alpha=0.3,size=0.2, color="#a8babf") +
+        stat_summary(fun=function(x) {quantile(x, probs = 0.9)}, geom="crossbar", width=0.2, color="orange") +
+        geom_hline(yintercept=1.1, linetype="dashed", color = "red") +
+        ylim(0.9,2)+
+        labs(x="Model chains",y="Parameter estimates")+
+        theme_classic()
+
+# Create a merged psrf.rho (phylogeny) plot
+ls() %>%
+        grep("^psrf\\.rho", ., value = TRUE) %>%
+        map_dfr(~ {
+         mat <- get(.x)
+          data.frame(modelchain = .x, as.data.frame(mat, , stringsAsFactors = FALSE)) %>%
+              rownames_to_column(var="parameter") %>%
+              mutate(model = str_split(modelchain, "_") %>% map_chr(1) %>% gsub("psrf.rho.","",.)) %>%
+              mutate(sample = str_split(modelchain, "_") %>% map_chr(2)) %>% #extract sample info from model name
+              mutate(thin = str_split(modelchain, "_") %>% map_chr(3)) #extract thin info from model name
+      }) %>%
+      ggplot(.,aes(x=reorder(modelchain,-Point.est.,fun=function(x) {quantile(x, probs = 0.9)}),y=Point.est.)) +
+        geom_violin(fill="#b8d9e3", color="#328da8") +
+        geom_jitter(alpha=0.3,size=0.2, color="#a8babf") +
+        stat_summary(fun=function(x) {quantile(x, probs = 0.9)}, geom="crossbar", width=0.2, color="orange") +
+        geom_hline(yintercept=1.1, linetype="dashed", color = "red") +
+        ylim(0.9,2)+
+        labs(x="Model chains",y="Parameter estimates")+
+        theme_classic()
+
+```
+In the beta plot, each dot represents the beta parameter of a different genome, while the dots in the gamma plot indicate different parameters related to phylogeny. We observe that both beta (response to dominance) and rho (phylogenetic signal) parameters display values around 1, with no outliers, indicating that the 4x250x1 model fitting was good enough for our purposes.
+
+

@@ -1,0 +1,315 @@
+# Dominance-microbiome analysis
+
+```{r load_data_hmsc_analysis}
+load("data/data.Rdata")
+load("hmsc/fit_model1_250_10.Rdata")
+```
+
+### Posterior estimates
+The next step is to get the posterior estimates of beta, which is the parameter that links dominance with the microbiome. We employ a support threshold of '0.05' to assign significance, meaning that parameters with posterior overlaps of <10% are considered significantly different.
+
+```{r hmsc_postestimates, warning=FALSE, comments="", message=FALSE}
+# Select desired support threshold
+support=0.9
+negsupport=1-support
+
+# Basal tree
+postestimates_tree <- genome_tree %>%
+        keep.tip(., tip=m$spNames) 
+
+# Posterior estimate table
+post_beta <- getPostEstimate(hM=m, parName="Beta")$support %>%
+    as.data.frame() %>%
+    mutate(variable=m$covNames) %>%
+    pivot_longer(!variable, names_to = "genome", values_to = "value") %>%
+    mutate(genome=factor(genome, levels=rev(postestimates_tree$tip.label))) %>%
+    mutate(value = case_when(
+          value >= support ~ "Positive",
+          value <= negsupport ~ "Negative",
+          TRUE ~ "Neutral")) %>%
+    mutate(value=factor(value, levels=c("Positive","Neutral","Negative"))) %>%
+    pivot_wider(names_from = variable, values_from = value) %>%
+    rename(intercept=2) %>%
+    select(genome,dominance,groupvariable) %>%
+    column_to_rownames(var="genome")
+
+# Aggregate basal GIFT into elements
+function_table <- genome_gifts %>%
+    to.elements(., GIFT_db) %>%
+    as.data.frame()
+
+#Phylums
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    filter(genome %in% postestimates_tree$tip.label) %>%
+    arrange(match(genome, postestimates_tree$tip.label)) %>%
+    mutate(phylum = factor(phylum, levels = unique(phylum))) %>%
+    column_to_rownames(var = "genome") %>%
+    select(phylum)
+
+
+colors_alphabetic <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    filter(genome %in% postestimates_tree$tip.label) %>%
+    arrange(match(genome, postestimates_tree$tip.label)) %>%
+     select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Basal ggtree
+postestimates_tree <- postestimates_tree %>%
+        force.ultrametric(.,method="extend") %>%
+        ggtree(., size = 0.3)
+
+#Add phylum colors next to the tree tips
+postestimates_tree <- gheatmap(postestimates_tree, phylum_colors, offset=-0.2, width=0.1, colnames=FALSE) +
+      scale_fill_manual(values=colors_alphabetic)+
+      labs(fill="Phylum")
+
+#Reset fill scale to use a different colour profile in the heatmap
+postestimates_tree <- postestimates_tree + new_scale_fill()
+
+# Add posterior significant heatmap
+postestimates_tree <- gheatmap(postestimates_tree, post_beta, offset=0, width=0.2, colnames=TRUE, colnames_position="top",colnames_angle=90, colnames_offset_y=1, hjust=0) +
+        scale_fill_manual(values=c("#be3e2b","#f4f4f4","#b2b530"))+
+        labs(fill="Trend")
+
+#Reset fill scale to use a different colour profile in the heatmap
+postestimates_tree <- postestimates_tree + new_scale_fill()
+
+#Add functions heatmap
+postestimates_tree <- gheatmap(postestimates_tree, function_table, offset=0.6, width=3.5, colnames=FALSE) +
+            vexpand(.08) +
+            coord_cartesian(clip = "off") +
+            scale_fill_gradient(low = "#f4f4f4", high = "steelblue", na.value="white") +
+            labs(fill="Function fullness")
+
+#Reset fill scale to use a different colour profile in the heatmap
+postestimates_tree <- postestimates_tree + new_scale_fill()
+
+# Add completeness barplots
+postestimates_tree <- postestimates_tree +
+            geom_fruit(data=genome_metadata,
+            geom=geom_bar,
+            grid.params=list(axis="x", text.size=2, nbreak = 1),
+            axis.params=list(vline=TRUE),
+            mapping = aes(x=length, y=genome, fill=completeness),
+                 offset = 3.85,
+                 orientation="y",
+                 stat="identity") +
+            scale_fill_gradient(low = "#cf8888", high = "#a2cc87") +
+            labs(fill="Genome completeness")
+
+postestimates_tree +
+        vexpand(.25, 1) # expand top 
+```
+### Positively associated genomes
+
+```{r positive_table, warning=FALSE, comments="", message=FALSE}
+getPostEstimate(hM=m, parName="Beta")$support %>%
+    as.data.frame() %>%
+    mutate(variable=m$covNames) %>%
+    pivot_longer(!variable, names_to = "genome", values_to = "value") %>%
+    mutate(trend = case_when(
+          value >= support ~ "Positive",
+          value <= negsupport ~ "Negative",
+          TRUE ~ "Neutral")) %>%
+    filter(variable=="dominance", trend=="Positive") %>%
+    arrange(-value) %>%
+    left_join(genome_metadata,by=join_by(genome==genome)) %>%
+    select(genome,phylum,class,order,species,value) %>%
+    tt()
+```
+
+
+
+
+### Negatively associated genomes
+
+```{r negative_table, warning=FALSE, comments="", message=FALSE}
+getPostEstimate(hM=m, parName="Beta")$support %>%
+    as.data.frame() %>%
+    mutate(variable=m$covNames) %>%
+    pivot_longer(!variable, names_to = "genome", values_to = "value") %>%
+    mutate(trend = case_when(
+          value >= support ~ "Positive",
+          value <= negsupport ~ "Negative",
+          TRUE ~ "Neutral")) %>%
+    filter(variable=="dominance", trend=="Negative") %>%
+    arrange(value) %>%
+    left_join(genome_metadata,by=join_by(genome==genome)) %>%
+    select(genome,phylum,class,order,species,value) %>%
+    tt()
+```
+
+## Predict responses to dominance
+Based on the fitted model, we can predict the structure of the microbial community for each level of dominance for a certain value of sequencing depth.
+
+```{r hmsc_predictions, warning=FALSE, comments="", message=FALSE}
+
+# Select modelchain of interest
+load("hmsc/fit_model1_250_10.Rdata")
+
+gradient = seq(0,1,0.1)
+gradientlength = length(gradient)
+
+#Treatment-specific gradient predictions
+pred <- constructGradient(m, 
+                      focalVariable = "dominance", 
+                      non.focalVariables = list(logseqdepth=list(1)), 
+                      ngrid=gradientlength) %>%
+             predict(m, Gradient = ., expected = TRUE)
+
+predY <- pred %>%
+        do.call(rbind,.) %>%
+        as.data.frame() %>%
+        mutate(dominance=rep(gradient,1000)) %>%
+        pivot_longer(-c(dominance), names_to = "genome", values_to = "value")
+
+```
+
+### Plot responses to dominance
+The estimated responses of genomes exhibiting significant positive and negative association with dominance.
+
+```{r hmsc_temporal_predictions_genomes_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+#Get phylum colors from the EHI standard
+phylum_colors <- genome_metadata %>%
+    left_join(read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv"), by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree$tip.label)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    slice(2:5) %>%
+    select(colors) %>%
+    pull()
+
+getPostEstimate(hM=m, parName="Beta")$support %>%
+    as.data.frame() %>%
+    mutate(variable=m$covNames) %>%
+    pivot_longer(!variable, names_to = "genome", values_to = "value") %>%
+    mutate(trend = case_when(
+          value >= support ~ "Positive",
+          value <= negsupport ~ "Negative",
+          TRUE ~ "Neutral")) %>%
+    filter(variable=="dominance", trend!="Neutral") %>%
+    select(genome,trend) %>%
+    left_join(predY, by=join_by(genome==genome)) %>%
+    filter(trend != "Neutral") %>%
+    #filter(genome %in% predY_asc)  %>% #only display genomes with contrasting dynamics across treatments
+    group_by(genome, trend, dominance) %>%
+    summarize(value = mean(value, na.rm = TRUE)) %>%
+    left_join(genome_metadata, by=join_by(genome == genome)) %>%
+    ggplot(aes(x=dominance, y=value, group=genome, color=phylum)) + 
+        geom_line() +
+        scale_color_manual(values=phylum_colors) +
+        facet_grid(fct_rev(trend) ~ phylum) +
+        labs(y="Genome abundance (log)",x="Dominance") +
+        theme(legend.position = "none") +
+        theme_minimal() +
+         theme(legend.position = "none",
+               axis.text.x = element_text(angle = 45, hjust = 0.8,),
+               axis.line.x = element_line(size = 0.5, linetype = "solid", colour = "black"),
+)
+```
+
+## Plot traits linked to trends
+
+### Test functional trait differences
+Using Wilcoxon test with Benjamini-Hochberg procedure for FDR, identify functional traits that differ between genomes that are either positively or negatively association with dominance.
+
+```{r hmsc_dominance_test, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+postestimate_test <- getPostEstimate(hM=m, parName="Beta")$support %>%
+      as.data.frame() %>%
+      mutate(variable=m$covNames) %>%
+      pivot_longer(!variable, names_to = "genome", values_to = "value") %>%
+      mutate(trend = case_when(
+            value >= support ~ "Positive",
+            value <= negsupport ~ "Negative",
+            TRUE ~ "Neutral")) %>%
+      filter(variable=="dominance", trend!="Neutral") %>%
+      select(genome,trend) %>%
+      left_join(function_table %>% rownames_to_column(var="genome"), by=join_by(genome==genome)) %>%
+      pivot_longer(-c(genome,trend), names_to = "trait", values_to = "value") %>%
+      group_by(trait) %>%
+      summarise(p_value = wilcox.test(value ~ trend)$p.value) %>%
+      mutate(p_adjust=p.adjust(p_value, method="BH")) %>%
+      filter(p_adjust < 0.05)
+```
+
+There are no traits that differ significantly between positively and negatively associated genomes.
+
+### Plot functional trait differences (not useful, as there are no differences)
+
+```{r hmsc_dominance_elements, warning=FALSE, comments="", message=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+postestimate_support %>%
+      rownames_to_column(var="genome") %>%
+      filter(trend != "Neutral") %>%
+      left_join(function_table %>% rownames_to_column(var="genome"), by=join_by(genome==genome)) %>%
+      pivot_longer(-c(genome,trend), names_to = "trait", values_to = "value") %>%
+      filter(trait %in% postestimate_test$trait) %>% #filter significantly different functions
+      filter(trait != "S0201") %>% #remove structural trait
+      ggplot(.,aes(x=value, y=trend, fill=trend, color=trend)) +
+          #geom_boxplot(color="black") +
+          geom_violin() +
+          scale_color_manual(values=c("#cf8888","#a2cc87"))+
+          scale_fill_manual(values=c("#cf8888","#a2cc87"))+
+          facet_grid(trait ~ ., space="free")+
+          theme_classic() +
+          labs(x="Metabolic Capacity Index",y="Metabolic function", fill="Trend", color="Trend") +
+          theme(strip.text.y = element_text(angle = 0),
+                  strip.background = element_blank(),
+                        axis.text.y=element_blank())
+```
+
+### Community functional predictions
+```{r hmsc_community_predictions, eval=FALSE}
+
+function_table2 <- function_table %>% to.functions(., GIFT_db)
+
+community_gifts <- predY %>%
+  group_by(dominance, genome) %>%
+  mutate(row_id = row_number()) %>%
+  pivot_wider(names_from = genome, values_from = value) %>%
+  ungroup() %>%
+  group_split(row_id) %>%
+  as.list() %>%
+  lapply(., FUN = function(x){x %>%
+    select(-row_id) %>%
+    column_to_rownames(var = "dominance") %>%
+    as.data.frame() %>%
+    exp() %>%
+    t() %>%
+    tss() %>%
+    to.community(function_table2,.,GIFT_db) %>% 
+    as.data.frame() %>%
+    rownames_to_column(var="dominance")
+   })
+
+community_gifts %>%
+	bind_rows() %>%
+	pivot_longer(-dominance, names_to = "trait", values_to = "value") %>%
+	mutate(dominance=as.numeric(dominance)) %>%
+	filter(trait=="B0218") %>%
+   	ggplot(.,aes(x=dominance, y=value)) +
+	  geom_point() +
+          geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
+          theme_classic() +
+          labs(x="Dominance",y="Metabolic Capacity Index") 
+
+community_gifts %>%
+	bind_rows() %>%
+	pivot_longer(-dominance, names_to = "trait", values_to = "value") %>%
+	mutate(dominance=as.numeric(dominance)) %>%
+	#filter(trait=="B03") %>%
+   	ggplot(.,aes(x=dominance, y=value)) +
+	  geom_point() +
+          geom_quantile(quantiles = 0.05, formula = y ~ splines::bs(x, 3)) +
+          geom_quantile(quantiles = 0.5, formula = y ~ splines::bs(x, 3)) +
+          geom_quantile(quantiles = 0.95, formula = y ~ splines::bs(x, 3)) +
+          facet_grid(. ~ trait, ) +
+          theme_classic() +
+          labs(x="Dominance",y="Metabolic Capacity Index") 
+
+```

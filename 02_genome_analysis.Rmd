@@ -1,0 +1,159 @@
+# (PART) GENOME ANALYSIS {-}
+# GWAS analysis
+
+### Association analysis
+
+```{r association_analysis, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
+# SNP data
+X = read.plink("data/variants_filtered.bed")
+X = as(X$genotypes,'numeric')
+
+# Metadata
+data = read_table("data/dominance_t1.tsv") %>%
+      mutate(cage=factor(cage)) %>%
+      mutate(mouse=factor(mouse)) %>%
+      as.data.frame()
+
+# Run GWAS
+gwas = GridLMM_GWAS(formula = dominance ~ 1 + (1|cage),
+                                  test_formula = ~1,
+                                  reduced_formula = ~0,
+                                  data = data,
+                                  X = X,
+                                  X_ID = 'mouse',
+                                  method = 'REML',
+                                  fillNAX = TRUE,
+                                  verbose = F,
+                                  mc.cores = 8)
+```
+
+### Manhattan plot
+
+```{r manhattan_plot, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
+# Prepare working table
+gwas_result <- gwas$results %>%
+  #slice_sample(n=100000) %>%
+  separate(X_ID, into = c("chr", "bp"), sep = "_", remove = FALSE) %>% # separate chromosome and position
+  mutate(bp=as.numeric(bp)) %>%
+  mutate(chr=factor(chr, levels=c(c(1:19),"X"))) %>%
+  rename(p=p_value_REML) %>%
+  filter(!is.nan(p))
+
+###
+# Custom Manhattan
+###
+# https://r-graph-gallery.com/101_Manhattan_plot.html
+
+# Append chromosome coordinates
+gwas_result <- gwas_result %>%
+    group_by(chr) %>%
+    summarise(chr_len=max(bp)) %>%
+    mutate(tot=cumsum(chr_len)-chr_len) %>%
+    select(-chr_len) %>%
+    left_join(gwas_result, ., by=c("chr"="chr")) %>%
+    arrange(chr, bp) %>%
+    mutate(bp_cum=bp+tot)
+
+# Append significance level
+gwas_result_unsig <- gwas_result %>%
+    filter(p > 0.000001)
+
+# Generate chromosome number code
+axisdf <- gwas_result %>%
+    group_by(chr) %>%
+    summarize(center=mean(bp_cum))
+
+# Plot gwas
+ggplot(gwas_result_unsig, aes(x=bp_cum, y=-log10(p))) +
+        # Show all points
+        geom_point(aes(color=as.factor(chr)), alpha=0.8, size=1.3) +
+        scale_color_manual(values = rep(c("grey", "skyblue"), 22 )) +
+        # Show significant points
+        geom_point(data=gwas_result_sig, aes(x=bp_cum, y=-log10(p)), color="#FFB91F", shape=17, alpha=0.9, size=1.6) +
+        # custom X axis:
+        scale_x_continuous(label = axisdf$chr, breaks= axisdf$center, expand = c(0.01, 0.01)) +
+        scale_y_continuous(expand = c(0.01, 0.04)) +
+        # Custom the theme:
+        theme_bw() +
+        labs(x="Chromosome") +
+        theme(
+          legend.position="none",
+          panel.border = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank()
+        )
+```
+
+### Candidate gene extraction
+
+```{r extract_candidates, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
+gwas$results %>%
+  filter(p_value_REML < 0.000001) %>%
+  write.table(., file="results/gwas_dominance_t1.tsv", col.names=T, row.names=F, sep="\t", quote=FALSE)
+```
+
+# Candidate gene analysis
+
+```{r analyse_candidates, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
+# Load SNP tables
+snps <- bind_rows(
+  read_tsv("results/gwas_dominance_t1.tsv") %>% mutate(time="t1"),
+  read_tsv("results/gwas_dominance_t2.tsv") %>% mutate(time="t2"),
+  read_tsv("results/gwas_dominance_t3.tsv") %>% mutate(time="t3"),
+  read_tsv("results/gwas_dominance_t4.tsv") %>% mutate(time="t4"),
+  read_tsv("results/gwas_dominance_t5.tsv") %>% mutate(time="t5"),
+  read_tsv("results/gwas_dominance_t6.tsv") %>% mutate(time="t6")) %>%
+  separate(X_ID, into = c("chr", "position"), sep = "_", convert = TRUE) %>%
+  select(-Trait)%>%
+  mutate(chr = as.character(chr))
+
+table(snps$chr)
+
+# Load genome annotation
+annot <- read_tsv("https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.27_GRCm39/GCF_000001635.27_GRCm39_feature_table.txt.gz") %>%
+  rename(feature=1)
+
+# Merge SNPs and annotation
+snps_annot <- annot %>%
+    filter(feature == "gene") %>%
+    select(chromosome, start, end, name, symbol, GeneID) %>%
+    right_join(snps, by = c("chromosome" = "chr"), relationship = "many-to-many") %>%
+    filter(position >= start, position <= end) %>%
+    mutate(chromosome = as.numeric(chromosome)) %>%
+    mutate(time = factor(time)) %>%
+    select(time, chromosome, position, name, symbol, GeneID, p_value_REML) %>%
+    arrange(time, chromosome, position)
+
+# Number of different features per time
+snps_annot %>%
+  group_by(time) %>%
+  summarise(features = n_distinct(name), snps=n_distinct(position))
+
+#Number of times per feature
+snps_annot %>%
+  group_by(symbol) %>%
+  summarise(time = n_distinct(time)) %>% arrange(-time)
+
+#Time-progress
+snps_time <- snps_annot %>%
+  select(symbol,time) %>%
+  mutate(indicator = 1) %>%
+  pivot_wider(names_from = time, values_from = indicator, values_fill = NULL) %>%
+  mutate(across(starts_with("t"), ~ map_int(., ~ ifelse(is.null(.), 0, length(.)))))
+
+snps_time %>% tt()
+
+snps_time %>%
+    pivot_longer(!symbol, names_to = "time", values_to = "value") %>%
+    mutate(symbol=factor(symbol, levels=rev(snps_time$symbol))) %>%
+    ggplot(aes(y=symbol, x=time, fill=value)) +
+      geom_tile(color = "white", lwd = 1, linetype = 1) +
+      scale_fill_gradient(low = "white", high = "#d572ad") +
+      labs(y="Genes", x="Time") +
+      theme_classic()
+
+
+# Print the table
+snps_annot %>%
+    print(n=100)
+```

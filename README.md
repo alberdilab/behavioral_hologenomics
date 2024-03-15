@@ -9,15 +9,18 @@ https://docs.google.com/document/d/1Ra6K9tJBcnQmh23X5Pv3lZoZJmxm84B3S1uOH_diuWY/
 
 ## Index
 
+## Analysis procedures
 
-### 0 - Project description
+The raw code used for data analysis is in the **Rmd** files stored in the root directory of this repository, while the bookdown-rendered webbook is available at:
 
-Description of the project.
-[0-project_description.md](0-project_description.md)
+[alberdilab.github.io/lizard_sample_types](https://alberdilab.github.io/lizard_sample_types)
 
-### 2 - Microbial metagenomics
+While the webbook provides a user-friendly overview of the procedures, analyses can be directly reproduced using the Rmd documents. Note that the code chunks that require heavy computation have been tuned off using 'eval=FALSE'. To re-render the webbook, you can use the following code:
 
-#### 2.1 - Data preparation
+```r
+library(bookdown)
+library(htmlwidgets)
+library(webshot)
 
-- **Rmd code:** [2.1-microbial_metagenomics_data_preparation.Rmd](2.1-microbial_metagenomics_data_preparation.Rmd)
-- **HTML render:** [2.1-microbial_metagenomics_data_preparation.html](https://htmlpreview.github.io/?https://github.com/alberdilab/behavioral_hologenomics/blob/main/2.1-microbial_metagenomics_data_preparation.html)
+render_book(input = ".", output_format = "bookdown::gitbook", output_dir = "docs")
+```

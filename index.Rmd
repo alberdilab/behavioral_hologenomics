@@ -1,0 +1,92 @@
+---
+title: "AlberdiLab | Santos-Bay et al. 2024"
+subtitle: "Hologenomic insights into the social hierachies in mice"
+author:
+  - Luisa Santos-Bay^[University of Copenhagen, luisa.nielsen@sund.ku.dk]
+  - Tom Gilbert^[University of Copenhagen, t.gilbert@sund.ku.dk]
+  - Ostaizka Aizpurua^[University of Copenhagen, ostaizka.aizpurua@sund.ku.dk]
+  - Antton Alberdi^[University of Copenhagen, antton.alberdi@sund.ku.dk]
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography: [book.bib, packages.bib]
+url: https://alberdilab.github.io/behavioural_hologenomics
+description: |
+  Data analysis code for the study on the hologenomic basis of social hierarchies in laboratory mice.
+link-citations: yes
+github-repo: alberdilab/lizard_sample_types
+---
+
+```{r knitr_opts, echo=FALSE}
+knitr::opts_chunk$set(
+    class.source = "script-source",
+    class.output = "script-output",
+    comment = NA)
+```
+
+# (PART) INTRODUCTION {-}
+
+# Project description
+
+This webbook contains all the code used for data analysis in study on the hologenomic basis of social hierarchies in laboratory mice. In this study, we analysed the behavioural trait dominance in J:DO laboratory mice (mus musculus) in light of host genomic and microbial metagenomic variation. Over the course of 14 weeks, we measured dominance of 80 mice in total, 40 of each sex, using a tube test to rank the dominance within a cage. Five males or five females were housed together per cage, and a hierarchy of dominance was therefore created ranking the individuals from 1 to 5, where 1 signified “most dominant” and 5 as “most submissive”. We further wanted to explore if the gut microbiome affects dominance under different biological conditions, such as changes in temperature or diet. Hence, the mice were exposed to five specific treatments, all known to interfere with the gut microbiome, each following a four day resting period for the mice to restore the potential unbalance caused (e.g. physiological or gut microbial). The order of treatments was i) an exposure to heat (temperature set to 34 degrees celsius), ii) an exposure to cold (temperature set to 14 degrees celsius), iii) a dietary change, where tryptophan was removed, iv) an antibiotic and antifungal treatment, and lastly, v) a fecal microbiota transplantation, where, among other, the feces from the most dominant animal was given to the most submissive, and vice versa, within each cage. However, two cages - one cage per sex - were not exposed to treatments, and thus, they serve as controls to examine what the gut microbes may have had of influence on dominance without any other biological disturbances.
+
+## Prepare the R environment
+
+### Environment
+
+To reproduce all the analyses locally, clone this repository in your computer using:
+
+```
+RStudio > New Project > Version Control > Git
+```
+
+And indicating the following git repository:
+
+> https://github.com/alberdilab/behavioral_hologenomics.git
+
+Once the R project has been created, follow the instructions and code chunks shown in this webbook.
+
+### Libraries
+
+The following R packages are required for the data analysis.
+
+```{r load_libraries, warning=FALSE, comments="", message=FALSE}
+# Base
+library(R.utils)
+library(knitr)
+library(tidyverse)
+library(devtools)
+library(tinytable)
+
+# For tree handling
+library(ape)
+library(phyloseq)
+library(phytools)
+
+# For plotting
+library(ggplot2)
+library(ggrepel)
+library(ggpubr)
+library(ggnewscale)
+library(gridExtra)
+library(ggtreeExtra)
+library(ggeffects)
+library(ggtree)
+library(ggh4x)
+
+# For statistics
+library(GridLMM)
+library(snpStats)
+library(qqman)
+library(Hmsc)
+library(spaa)
+library(vegan)
+library(Rtsne)
+library(geiger)
+library(hilldiv2)
+library(distillR)
+library(lme4)
+library(glmmTMB)
+library(lubridate)
+library(MuMIn)
+```
