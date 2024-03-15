@@ -163,7 +163,7 @@ names(hierarchy_stability) <- cages
 
 hierarchy_stability %>% 
     as.data.frame() %>% t() %>% as.data.frame() %>%
-    tt() |> 
+    tt(digits = 2) |> 
       style_tt(i = 0, color = "white", background = "#a52929")
 
 mean(hierarchy_stability)

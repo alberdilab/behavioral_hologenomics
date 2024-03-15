@@ -2025,7 +2025,7 @@ color: #a52929;
       <nav role="navigation">
 
 <ul class="summary">
-<li class="toc-logo"><a href="index.html" target="blank"><img src="docs/alberdilab_minilogo.png" alt="AlberdiLab logo"></a></li>
+<li class="toc-logo"><a href="index.html" target="blank"><img src="img/alberdilab_minilogo.png" alt="AlberdiLab logo"></a></li>
 <li align="center"><b>Santos-Bay et al. 2024</b></li>
 
 <li class="divider"></li>
@@ -2053,9 +2053,11 @@ color: #a52929;
 <li class="part"><span><b>III GENOME ANALYSIS</b></span></li>
 <li class="chapter" data-level="5" data-path="gwas-analysis.html"><a href="gwas-analysis.html"><i class="fa fa-check"></i><b>5</b> GWAS analysis</a>
 <ul>
-<li class="chapter" data-level="5.0.1" data-path="gwas-analysis.html"><a href="gwas-analysis.html#association-analysis"><i class="fa fa-check"></i><b>5.0.1</b> Association analysis</a></li>
-<li class="chapter" data-level="5.0.2" data-path="gwas-analysis.html"><a href="gwas-analysis.html#manhattan-plot"><i class="fa fa-check"></i><b>5.0.2</b> Manhattan plot</a></li>
-<li class="chapter" data-level="5.0.3" data-path="gwas-analysis.html"><a href="gwas-analysis.html#candidate-gene-extraction"><i class="fa fa-check"></i><b>5.0.3</b> Candidate gene extraction</a></li>
+<li class="chapter" data-level="5.1" data-path="gwas-analysis.html"><a href="gwas-analysis.html#association-analysis"><i class="fa fa-check"></i><b>5.1</b> Association analysis</a>
+<ul>
+<li class="chapter" data-level="5.1.1" data-path="gwas-analysis.html"><a href="gwas-analysis.html#manhattan-plot"><i class="fa fa-check"></i><b>5.1.1</b> Manhattan plot</a></li>
+<li class="chapter" data-level="5.1.2" data-path="gwas-analysis.html"><a href="gwas-analysis.html#candidate-gene-extraction"><i class="fa fa-check"></i><b>5.1.2</b> Candidate gene extraction</a></li>
+</ul></li>
 </ul></li>
 <li class="chapter" data-level="6" data-path="candidate-gene-analysis.html"><a href="candidate-gene-analysis.html"><i class="fa fa-check"></i><b>6</b> Candidate gene analysis</a></li>
 <li class="part"><span><b>IV MICROBIOME ANALYSIS</b></span></li>
@@ -2142,8 +2144,9 @@ color: #a52929;
             <section class="normal" id="section-">
 <div id="gwas-analysis" class="section level1 hasAnchor" number="5">
 <h1><span class="header-section-number">Chapter 5</span> GWAS analysis<a href="gwas-analysis.html#gwas-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h1>
-<div id="association-analysis" class="section level3 hasAnchor" number="5.0.1">
-<h3><span class="header-section-number">5.0.1</span> Association analysis<a href="gwas-analysis.html#association-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div id="association-analysis" class="section level2 hasAnchor" number="5.1">
+<h2><span class="header-section-number">5.1</span> Association analysis<a href="gwas-analysis.html#association-analysis" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>This step is repeated for each time point separately.</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb15-1"><a href="gwas-analysis.html#cb15-1" tabindex="-1"></a><span class="co"># SNP data</span></span>
 <span id="cb15-2"><a href="gwas-analysis.html#cb15-2" tabindex="-1"></a>X <span class="ot">=</span> <span class="fu">read.plink</span>(<span class="st">&quot;data/variants_filtered.bed&quot;</span>)</span>
 <span id="cb15-3"><a href="gwas-analysis.html#cb15-3" tabindex="-1"></a>X <span class="ot">=</span> <span class="fu">as</span>(X<span class="sc">$</span>genotypes,<span class="st">&#39;numeric&#39;</span>)</span>
@@ -2165,9 +2168,9 @@ color: #a52929;
 <span id="cb15-19"><a href="gwas-analysis.html#cb15-19" tabindex="-1"></a>                                  <span class="at">fillNAX =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb15-20"><a href="gwas-analysis.html#cb15-20" tabindex="-1"></a>                                  <span class="at">verbose =</span> F,</span>
 <span id="cb15-21"><a href="gwas-analysis.html#cb15-21" tabindex="-1"></a>                                  <span class="at">mc.cores =</span> <span class="dv">8</span>)</span></code></pre></div>
-</div>
-<div id="manhattan-plot" class="section level3 hasAnchor" number="5.0.2">
-<h3><span class="header-section-number">5.0.2</span> Manhattan plot<a href="gwas-analysis.html#manhattan-plot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div id="manhattan-plot" class="section level3 hasAnchor" number="5.1.1">
+<h3><span class="header-section-number">5.1.1</span> Manhattan plot<a href="gwas-analysis.html#manhattan-plot" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>This step is repeated for each gwas result separately.</p>
 <div class="sourceCode" id="cb16"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb16-1"><a href="gwas-analysis.html#cb16-1" tabindex="-1"></a><span class="co"># Prepare working table</span></span>
 <span id="cb16-2"><a href="gwas-analysis.html#cb16-2" tabindex="-1"></a>gwas_result <span class="ot">&lt;-</span> gwas<span class="sc">$</span>results <span class="sc">%&gt;%</span></span>
 <span id="cb16-3"><a href="gwas-analysis.html#cb16-3" tabindex="-1"></a>  <span class="co">#slice_sample(n=100000) %&gt;%</span></span>
@@ -2220,12 +2223,31 @@ color: #a52929;
 <span id="cb16-50"><a href="gwas-analysis.html#cb16-50" tabindex="-1"></a>          <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>(),</span>
 <span id="cb16-51"><a href="gwas-analysis.html#cb16-51" tabindex="-1"></a>          <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
 <span id="cb16-52"><a href="gwas-analysis.html#cb16-52" tabindex="-1"></a>        )</span></code></pre></div>
+<p><img src="img/gwas_dominance_t1.png" alt="Manhattan plot for t1" />
+<img src="img/gwas_dominance_t2.png" alt="Manhattan plot for t2" /></p>
+<div class="float">
+<img src="img/gwas_dominance_t3.png" alt="Manhattan plot for t3" />
+<div class="figcaption">Manhattan plot for t3</div>
 </div>
-<div id="candidate-gene-extraction" class="section level3 hasAnchor" number="5.0.3">
-<h3><span class="header-section-number">5.0.3</span> Candidate gene extraction<a href="gwas-analysis.html#candidate-gene-extraction" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<div class="float">
+<img src="img/gwas_dominance_t4.png" alt="Manhattan plot for t4" />
+<div class="figcaption">Manhattan plot for t4</div>
+</div>
+<div class="float">
+<img src="img/gwas_dominance_t5.png" alt="Manhattan plot for t5" />
+<div class="figcaption">Manhattan plot for t5</div>
+</div>
+<div class="float">
+<img src="img/gwas_dominance_t6.png" alt="Manhattan plot for t6" />
+<div class="figcaption">Manhattan plot for t6</div>
+</div>
+</div>
+<div id="candidate-gene-extraction" class="section level3 hasAnchor" number="5.1.2">
+<h3><span class="header-section-number">5.1.2</span> Candidate gene extraction<a href="gwas-analysis.html#candidate-gene-extraction" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r script-source"><code class="sourceCode r"><span id="cb17-1"><a href="gwas-analysis.html#cb17-1" tabindex="-1"></a>gwas<span class="sc">$</span>results <span class="sc">%&gt;%</span></span>
 <span id="cb17-2"><a href="gwas-analysis.html#cb17-2" tabindex="-1"></a>  <span class="fu">filter</span>(p_value_REML <span class="sc">&lt;</span> <span class="fl">0.000001</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb17-3"><a href="gwas-analysis.html#cb17-3" tabindex="-1"></a>  <span class="fu">write.table</span>(., <span class="at">file=</span><span class="st">&quot;results/gwas_dominance_t1.tsv&quot;</span>, <span class="at">col.names=</span>T, <span class="at">row.names=</span>F, <span class="at">sep=</span><span class="st">&quot;</span><span class="sc">\t</span><span class="st">&quot;</span>, <span class="at">quote=</span><span class="cn">FALSE</span>)</span></code></pre></div>
+</div>
 </div>
 </div>
             </section>
