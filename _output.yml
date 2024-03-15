@@ -4,7 +4,7 @@ bookdown::gitbook:
   config:
     toc:
       before: |
-        <li class="toc-logo"><a href="index.html" target="blank"><img src="docs/alberdilab_minilogo.png" alt="AlberdiLab logo"></a></li>
+        <li class="toc-logo"><a href="index.html" target="blank"><img src="img/alberdilab_minilogo.png" alt="AlberdiLab logo"></a></li>
         <li align="center"><b>Santos-Bay et al. 2024</b></li>
       after: |
         <li><a href="https://www.alberdilab.dk" target="blank"><b>www.alberdilab.dk</b></a></li>

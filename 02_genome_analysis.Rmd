@@ -1,7 +1,9 @@
 # (PART) GENOME ANALYSIS {-}
 # GWAS analysis
 
-### Association analysis
+## Association analysis
+
+This step is repeated for each time point separately.
 
 ```{r association_analysis, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
 # SNP data
@@ -28,6 +30,8 @@ gwas = GridLMM_GWAS(formula = dominance ~ 1 + (1|cage),
 ```
 
 ### Manhattan plot
+
+This step is repeated for each gwas result separately.
 
 ```{r manhattan_plot, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
 # Prepare working table
@@ -83,6 +87,17 @@ ggplot(gwas_result_unsig, aes(x=bp_cum, y=-log10(p))) +
           panel.grid.minor.x = element_blank()
         )
 ```
+
+![Manhattan plot for t1](img/gwas_dominance_t1.png)
+![Manhattan plot for t2](img/gwas_dominance_t2.png)
+
+![Manhattan plot for t3](img/gwas_dominance_t3.png)
+
+![Manhattan plot for t4](img/gwas_dominance_t4.png)
+
+![Manhattan plot for t5](img/gwas_dominance_t5.png)
+
+![Manhattan plot for t6](img/gwas_dominance_t6.png)
 
 ### Candidate gene extraction
 
