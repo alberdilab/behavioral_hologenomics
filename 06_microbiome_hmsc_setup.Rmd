@@ -10,13 +10,28 @@ load("data/data.Rdata")
 Hmsc requires input object to be formatted in a very specific way. In the following chunk the random effects, fixed effects, read counts and genome phylogeny are declared.
 
 
-```{r hmsc_input, warning=FALSE, comments="", message=FALSE}
+```{r hmsc_input, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 # Random effects data (study design)
 StudyDesign <- sample_metadata %>%
                     filter(!is.na(dominance)) %>%
                     select(sample,animal,cage) %>%
                     mutate(cage = factor(cage)) %>%
                     mutate(animal = factor(animal)) %>%
+                    distinct() %>%
+                    column_to_rownames("sample")
+
+# Temporal data
+sData <- sample_metadata %>%
+                    filter(!is.na(dominance)) %>%
+                    mutate(time = case_when(
+                        treatment == "OP" ~ 1,
+                        treatment == "HT" ~ 2,
+                        treatment == "CT" ~ 3,
+                        treatment == "DT" ~ 4,
+                        treatment == "AN" ~ 5,
+                        treatment == "T3" ~ 6,
+                        TRUE ~ NA)) %>%
+                    select(sample,time) %>%
                     distinct() %>%
                     column_to_rownames("sample")
 
@@ -35,7 +50,9 @@ YData <- read_counts  %>%
 XData <- sample_metadata %>%
                     filter(sample %in% rownames(StudyDesign)) %>%
                     distinct() %>%
-                    select(sample,group,dominance) %>%
+                    select(sample,group,treatment,dominance) %>%
+                    mutate(treatment=factor(treatment, 
+                        levels=c("OP","HT","CT","DT","AN","T3"))) %>%
                     mutate(logseqdepth=read_counts %>% #total log-sequencing depth
                         select(all_of(row.names(StudyDesign))) %>%
                         colSums() %>%
@@ -51,27 +68,48 @@ PData <- genome_tree
 ### Define formulas of the Hmsc model
 Once the input data are ready, it is time for defining the formulas that will structure the model. In our case, the temporal dynamic of microbial communities will be modelled in light of the dominance indices of mice, while adding group (variable or invariable environment) and log-sequencing depth (the sequencing effort per sample) as covariates. Lastly, animal ID and cage ID are declared as random effects to control for the longitudinal aspect of the study (multiple samples per animal) and the housing structure (5 animals per cage).
 
-```{r hmsc_formulas, warning=FALSE, comments="", message=FALSE}
+```{r hmsc_formulas, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 
 # Fixed effects formula
 XFormula1 = ~dominance + group + logseqdepth
+XFormula2 = ~dominance + group + treatment + logseqdepth
+
 
 # Study design
 rL.animal = HmscRandomLevel(units = levels(StudyDesign$animal))
 rL.cage = HmscRandomLevel(units = levels(StudyDesign$cage))
+#rL.time = HmscRandomLevel(sData = sData)
 ```
 
 ### Define and Hmsc models
 The following chunk generates the Hmsc model that we will later fit in the high computation cluster. In this case there will be a single model called 'model1'.
 
-```{r hmsc_models, warning=FALSE, comments="", message=FALSE}
+```{r hmsc_models, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 #Define models
-model1 = Hmsc(Y=YData,
+model1 = Hmsc(Y= YData,
          XData = XData,
          XFormula = XFormula1,
          studyDesign = StudyDesign,
          phyloTree = PData,
          ranLevels = list("animal"=rL.animal, "cage"=rL.cage),
+         distr = "normal",
+         YScale = TRUE)
+
+model2 = Hmsc(Y= YData,
+         XData = XData,
+         XFormula = XFormula2,
+         studyDesign = StudyDesign,
+         phyloTree = PData,
+         ranLevels = list("animal"=rL.animal, "cage"=rL.cage),
+         distr = "normal",
+         YScale = TRUE)
+
+model3 = Hmsc(Y= YData,
+         XData = XData,
+         XFormula = XFormula2,
+         studyDesign = StudyDesign,
+         phyloTree = PData,
+         ranLevels = list("animal"=rL.animal, "cage"=rL.cage, "time"=rL.time),
          distr = "normal",
          YScale = TRUE)
 
@@ -87,7 +125,7 @@ Upload **hmsc/hmsc.Rdata** to the HPC respecting the directory structure.
 ## Define MCMC
 The next step is to define the parameters of the MCMC process for model fitting. In this case we opt for a single number of samplings (250), two thinning values (1 and 10), and 4 chains. This means that once the burn-in part is removed, each of the four MCMC chains will be sampled 250 times either with an interval of 1 or 10 iterations. Note that the 4x250x10 option is about 10 times slower than 4x250x1, although the probability for parameter convergence is increased.
 
-```{r hmsc_mcmc, warning=FALSE, comments="", message=FALSE}
+```{r hmsc_mcmc, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 # How often to sample the MCMC
 MCMC_samples_list = 250
 
@@ -102,7 +140,7 @@ nChains = 4
 
 The next chunk generates shell files for every combination of model, MCMC samples and MCMC thinning, ready to be launched as SLURM jobs. This is because Hmsc requires a notable amount of memory and long computation times, which renders impossible to run most fitting processes in personal computers. 
 
-```{r hmsc_executables, warning=FALSE, comments="", message=FALSE}
+```{r hmsc_executables, warning=FALSE, comments="", message=FALSE, eval=FALSE}
 
 modelchains <- expand.grid(model = names(model_list), sample = MCMC_samples_list, thin = MCMC_thin_list)
 

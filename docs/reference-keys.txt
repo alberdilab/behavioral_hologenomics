@@ -9,11 +9,13 @@ model-rank
 model-prediction
 dominance-visualisation
 hierarchy-stability
-gwas-analysis
+between-sexes
+heterozigosity-analysis
 association-analysis
 manhattan-plot
 candidate-gene-extraction
 candidate-gene-analysis
+extract-genotypes
 microbiome-data-preparation
 load-data
 count-table
@@ -40,6 +42,7 @@ taxonomy-barplot-per-treatment
 taxonomy-barplot-per-individual
 diversity-analysis
 alpha-diversities
+dominance-microbiome-modelling
 hmsc-modelling
 prepare-input-for-hmsc
 define-formulas-of-the-hmsc-model
@@ -50,10 +53,13 @@ fit-hmsc-models-in-mjolnir-hpc
 assess-chain-convergence
 dominance-microbiome-analysis
 posterior-estimates
+positively-associated-genomes
 negatively-associated-genomes
 predict-responses-to-dominance
 plot-responses-to-dominance
 plot-traits-linked-to-trends
 test-functional-trait-differences
-plot-functional-trait-differences-not-useful-as-there-are-no-differences
 community-functional-predictions
+element-level
+function-level
+microbiome-transplant-analysis

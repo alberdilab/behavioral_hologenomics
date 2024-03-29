@@ -1,0 +1,118 @@
+# Microbiome transplant analysis
+
+```{r load_data_transplant_analysis, warning=FALSE, comments="", message=FALSE}
+load("data/data.Rdata")
+transplant <- read_tsv("data/transplant.tsv") %>%
+  mutate(pair=paste0("P",c(1:39)))
+```
+
+```{r modify_metadata_transplant_analysis, warning=FALSE, comments="", message=FALSE}
+sample_subset <- c(paste0(transplant$donor,"DR",sep=""),paste0(transplant$receptor,"T3",sep=""))
+
+# Original sample comparison
+transplanto<- transplant %>%
+    filter(group=="transplant") %>%
+    mutate(donor=paste0(receptor,"DR",sep="")) %>%
+    mutate(receptor=paste0(receptor,"T3",sep="")) %>%
+    mutate(group="original")
+
+transplant1 <- transplant %>%
+    filter(group=="transplant") %>%
+    mutate(donor=paste0(donor,"DR",sep="")) %>%
+    mutate(receptor=paste0(receptor,"T1",sep="")) %>%
+    mutate(group=ifelse(group=="transplant","FMT1",group))
+
+transplant2 <- transplant %>%
+    filter(group=="transplant") %>%
+    mutate(donor=paste0(donor,"DR",sep="")) %>%
+    mutate(receptor=paste0(receptor,"T2",sep="")) %>%
+    mutate(group="FMT2")
+
+transplant3 <- transplant %>%
+    filter(group=="transplant") %>%
+    mutate(donor=paste0(donor,"DR",sep="")) %>%
+    mutate(receptor=paste0(receptor,"T3",sep="")) %>%
+    mutate(group="FMT3")
+
+anti <- transplant %>%
+    filter(group=="transplant") %>%
+    mutate(donor=paste0(donor,"DR",sep="")) %>%
+    mutate(receptor=paste0(receptor,"AN",sep="")) %>%
+    mutate(group="anti")
+
+transplant_all <- transplant %>% 
+    filter(group=="control") %>%
+    mutate(donor=paste0(receptor,"DR",sep="")) %>%
+    mutate(receptor=paste0(receptor,"T3",sep="")) %>%
+    bind_rows(transplanto) %>%
+    bind_rows(transplant1) %>%
+    bind_rows(transplant2) %>%
+    bind_rows(transplant3) %>%
+    bind_rows(anti)
+```
+
+```{r beta_neutral_pair, message=FALSE, warning=FALSE}
+sample_subset2 <- c(paste0(transplant$donor,"DR",sep=""),
+                   paste0(transplant$receptor,"DR",sep=""),
+                   paste0(transplant$receptor,"T1",sep=""),
+                   paste0(transplant$receptor,"T2",sep=""),
+                   paste0(transplant$receptor,"T3",sep=""),
+                   paste0(transplant$receptor,"AN",sep="")) %>% 
+                   unique()
+
+#Calculate Hill numbers
+beta_neutral_table <- genome_counts %>%
+  select(all_of(c("genome",sample_subset2))) %>%
+  column_to_rownames(var="genome") %>%
+  hillpair(.,q=1, metric="C", out = "pair")
+```
+
+```{r beta_neutral_pair_plot, message=FALSE, warning=FALSE}
+beta_neutral_table %>%
+  inner_join(transplant_all,by=join_by(first==donor,second==receptor)) %>%
+  mutate(group=factor(group,levels=c("control","original","anti","FMT1","FMT2","FMT3"))) %>%
+  ggplot(aes(x=group,y=C,group=group)) +
+    geom_boxplot() +
+    theme_minimal()
+```
+
+```{r beta_neutral_dist, message=FALSE, warning=FALSE, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
+#Calculate Hill numbers
+beta_neutral <- genome_counts %>%
+  select(all_of(c("genome",sample_subset))) %>%
+  column_to_rownames(var="genome") %>%
+  hillpair(.,q=1, metric="C")
+```
+
+```{r beta_neutral_nmds, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+beta_neutral %>%
+  vegan::metaMDS(., trymax = 500, k = 2, verbosity = FALSE, trace=FALSE) %>%
+  vegan::scores() %>%
+  as_tibble(., rownames = "sample") %>%
+  dplyr::left_join(sample_metadata, by = join_by(sample == sample)) %>%
+  dplyr::full_join(transplant %>% select(donor,pair), by = join_by(animal == donor)) %>%
+  dplyr::full_join(transplant %>% select(receptor,pair), by = join_by(animal == receptor)) %>%
+  mutate(pair.x=ifelse(treatment=="DR",pair.x,NA)) %>%
+  mutate(pair.y=ifelse(treatment=="T3",pair.y,NA)) %>%
+  rowwise() %>%
+  mutate(pair = list(c(pair.x, pair.y))) %>%
+  unnest(pair) %>%
+  filter(!is.na(pair)) %>%
+  ggplot(aes(x = NMDS1, y = NMDS2, color=treatment, shape=group, group = pair)) +
+    scale_shape_manual(name="Group",
+          breaks=c("invariable","variable"),
+          labels=c("Control","Transplant"),
+          values=c(17,19)) +
+    scale_color_manual(name="Sample",
+          breaks=c("DR","T3"),
+          labels=c("Donor","Receptor"),
+          values=c("#d8b8a3","#bcdee1")) +
+    scale_linetype_manual(name="Group",
+          breaks=c("invariable","variable"),
+          labels=c("Control","Transplant"),
+          values=c("dashed","solid")) +
+    geom_point(size = 4) +
+    geom_path(aes(linetype=group),color="#999999", alpha=0.5, arrow = arrow(length=unit(0.30,"cm"), ends="last", type = "closed")) +
+    theme_classic()
+```
+

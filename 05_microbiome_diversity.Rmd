@@ -137,7 +137,7 @@ alpha_div %>%
       labs(y="Functional diversity")
 ```
 
-```{r alpha_di_plot, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+```{r alpha_div_plot, message=FALSE, warning=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
 #Plot diversities
 alpha_plot_neutral <- alpha_div %>%
         filter(metric=="neutral") %>%
@@ -214,3 +214,4 @@ grid.arrange(alpha_plot_neutral, alpha_plot_phylo, alpha_plot_func, nrow = 1)
 beta_neutral <- genome_counts %>%
   column_to_rownames(var="genome") %>%
   hillpair(.,q=1, metric="C")
+```

@@ -152,7 +152,7 @@ genome_gifts <- distill(genome_annotations,GIFT_db,genomecol=2,annotcol=c(9,10,1
 In the last step, the objects that are needed for downstream analyses are stored in an R object.
 
 ```{r wrap_objects, eval=FALSE}
-save(read_counts, genome_counts, genome_tree, genome_metadata, sample_metadata, genome_gifts, file = "data/data.Rdata")
+save(dominance_predictions,read_counts, genome_counts, genome_tree, genome_metadata, sample_metadata, genome_gifts, file = "data/data.Rdata")
 ```
 
 - **read_counts**: Number of reads mapped to each genome in each sample. Note this is the unfiltered and unnormalised raw community composition table.

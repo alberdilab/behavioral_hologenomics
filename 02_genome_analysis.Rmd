@@ -1,4 +1,61 @@
 # (PART) GENOME ANALYSIS {-}
+# Heterozigosity analysis
+```{r heterozigosity_analysis, warning=FALSE, comments="", message=FALSE, results='hide'}
+heterozigosity <- read_tsv("data/heterozigosity.tsv") %>%
+    rename(mouse=1,obs_hom=2,est_hom=3,n_sites=4,f_stat=5) %>%
+    mutate(obs_het=n_sites - obs_hom) %>%
+    mutate(est_het=n_sites - est_hom) %>%
+    mutate(obs_het_perc=obs_het / n_sites * 100) %>%
+    mutate(est_het_perc=est_het / n_sites * 100) %>%
+    mutate(cage=substr(mouse, 1, 3))
+
+shapiro.test(heterozigosity$obs_het_perc)
+
+heterozigosity %>% 
+  as.data.frame() %>% 
+  aov(obs_het_perc ~ cage, data = .) %>% 
+  broom::tidy()
+
+heterozigosity %>%
+  ggplot(aes(y=cage,x=obs_het_perc,group=cage))+
+    geom_boxplot(fill="#f4f4f4")+
+    theme_minimal()
+
+mean_heterozigosity <- heterozigosity %>%
+    group_by(cage) %>%
+    summarise(mean=mean(obs_het_perc),sd=sd(obs_het_perc))
+
+heterozigosity %>%
+    group_by(cage) %>%
+    summarise(mean=mean(obs_het_perc),sd=sd(obs_het_perc)) %>% 
+    tt()
+```
+
+```{r heterozigosity_analysis_plot, warning=FALSE, comments="", message=FALSE, results='hide'}
+heterozigosity %>%
+  ggplot(aes(y=fct_rev(cage),x=obs_het_perc,group=cage))+
+    geom_boxplot(fill="#f4f4f4", color="#666666")+
+    theme_minimal()
+```
+
+```{r heterozigosity_stability_test, warning=FALSE, comments="", message=FALSE, results='hide'}
+hierarchy_stability %>% 
+    as.data.frame() %>% t() %>% t() %>% as.data.frame() %>%
+    rownames_to_column(var="cage") %>%
+    rename(cage=1,stability=2) %>%
+    left_join(mean_heterozigosity, by=join_by(cage==cage)) %>%
+    {cor.test(.$stability, .$mean)}
+```
+
+```{r heterozigosity_stability_plot, warning=FALSE, comments="", message=FALSE, results='hide'}
+hierarchy_stability %>% 
+    as.data.frame() %>% t() %>% t() %>% as.data.frame() %>%
+    rownames_to_column(var="cage") %>%
+    rename(cage=1,stability=2) %>%
+    left_join(mean_heterozigosity, by=join_by(cage==cage)) %>%
+    ggplot(aes(x=mean,y=stability)) +
+      geom_point()
+```
 # GWAS analysis
 
 ## Association analysis
@@ -109,7 +166,9 @@ gwas$results %>%
 
 # Candidate gene analysis
 
-```{r analyse_candidates, warning=FALSE, comments="", message=FALSE, results='hide', eval=FALSE}
+A negative value of beta.2 indicates that the alternative allelle is possitively correlated with dominance, while a positive value indicates that the reference allele is possitively correlated with dominance.
+
+```{r analyse_candidates, warning=FALSE, comments="", message=FALSE, results='hide'}
 # Load SNP tables
 snps <- bind_rows(
   read_tsv("results/gwas_dominance_t1.tsv") %>% mutate(time="t1"),
@@ -171,4 +230,165 @@ snps_time %>%
 # Print the table
 snps_annot %>%
     print(n=100)
+```
+
+## Extract genotypes
+
+The reference allele is whatever is found in the reference genome. It is not necessarily the major allele. The alternative allele is the allele found in the sample you are studying. 0 indicates the reference allele and 1 indicates the alternative allele. The vertical pipe | indicates that the genotype is phased, and is used to indicate which chromosome the alleles are on. If this is a slash / rather than a vertical pipe, it means we don’t know which chromosome they are on.
+
+```{r snp_string}
+snps_annot %>%
+      unite(snp, chromosome, position, sep = "_") %>%
+      pull(snp) %>%
+      unique() %>%
+      paste(collapse = ", ")
+```
+
+```{sh, eval=FALSE}
+module load plink2/2.00a2.3
+plink2 --bfile variants_filtered --snps 1_43293781, 10_3176712, 10_3180401, 10_3215733, 10_3222503, 10_3239685, 10_3247274, 10_3255540, 10_3278967, 10_3291671, 10_3291687, 10_3295099, 1_54382637, 1_41965255, 1_43054237, 1_41829441, 1_41911439, 1_41911465, 1_43150828, 1_43166326, 6_118519418, 9_68750520, 17_88356194, 2_170210928, 2_170483712, 2_170583793, 2_170617767, 2_170636806 --out candidate_genotypes --export vcf --threads 1
+```
+
+```{r genotype_dominance, warning=FALSE, comments="", message=FALSE}
+genotypes <- read_tsv("data/candidate_genotypes.tsv") %>%
+    select(-c(CHROM,POS,QUAL,FILTER,INFO,FORMAT)) %>%
+    pivot_longer(!c(ID,REF,ALT),names_to="sample",values_to="genotype") %>%
+    left_join(snps_annot %>% unite(id,chromosome,position, sep = "_") %>% select(id,time),by=join_by(ID==id)) %>%
+    left_join(dominance_predictions %>% select(mouse,time,dominance),by=join_by(sample==mouse,time==time)) %>%
+    filter(!genotype == "./.")
+```
+
+```{r genotype_dominance_plot, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
+genotypes %>%
+    ggplot(aes(x=genotype,y=dominance, group=genotype, color=genotype, fill=genotype)) + 
+      geom_boxplot() + 
+      scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+      scale_fill_manual(values=c("#D5CFCF50","#86b9d450","#a6897c50"))+
+      facet_wrap(ID ~ ., ncol=4) + 
+      theme_minimal()
+```
+
+```{r genotype_visualisation, warning=FALSE, comments="", message=FALSE, fig.height=5, fig.width=10, fig.fullwidth=TRUE}
+#RORA
+genotypes %>%
+    filter(ID=="9_68750520") %>%
+    mutate(genotype=factor(genotype, levels=c("0/0","0/1","1/1"))) %>%
+    ggplot(aes(x=genotype,y=dominance, group=genotype, color=genotype, fill=genotype)) + 
+      geom_boxplot() + 
+      scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+      scale_fill_manual(values=c("#D5CFCF50","#86b9d450","#a6897c50"))+
+      scale_x_discrete(drop = FALSE)+
+      theme_minimal()+ 
+      theme(legend.position = "none")
+      
+
+genotypes %>%
+      filter(ID=="9_68750520") %>%
+      select(sample,genotype) %>%
+      inner_join(dominance_predictions, by=join_by(sample==mouse)) %>%
+      mutate(time = as.numeric(substr(time, 2, 2))) %>%
+      mutate(mouse_number = substr(sample, 5, 5)) %>%
+      ggplot(aes(x=time,y=dominance, group=sample, color=genotype)) +
+        geom_line(size=1) +
+        scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+        scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1)) +
+        scale_x_continuous(breaks = c(1:6)) +
+        facet_wrap(cage ~ ., ncol=4) + 
+        theme_minimal()
+
+#Fbxo11
+genotypes %>%
+    filter(ID=="17_88356194") %>%
+    mutate(genotype=factor(genotype, levels=c("0/0","0/1","1/1"))) %>%
+    ggplot(aes(x=genotype,y=dominance, group=genotype, color=genotype, fill=genotype)) + 
+      geom_boxplot() + 
+      scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+      scale_fill_manual(values=c("#D5CFCF50","#86b9d450","#a6897c50"))+
+      scale_x_discrete(drop = FALSE)+
+      theme_minimal()+ 
+      theme(legend.position = "none")
+      
+
+genotypes %>%
+      filter(ID=="17_88356194") %>%
+      select(sample,genotype) %>%
+      inner_join(dominance_predictions, by=join_by(sample==mouse)) %>%
+      mutate(time = as.numeric(substr(time, 2, 2))) %>%
+      mutate(mouse_number = substr(sample, 5, 5)) %>%
+      ggplot(aes(x=time,y=dominance, group=sample, color=genotype)) +
+        geom_line(size=1) +
+        scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+        scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1)) +
+        scale_x_continuous(breaks = c(1:6)) +
+        facet_wrap(cage ~ ., ncol=4) + 
+        theme_minimal()
+
+#Ankrd26
+genotypes %>%
+    filter(ID=="6_118519418") %>%
+    mutate(genotype=factor(genotype, levels=c("0/0","0/1","1/1"))) %>%
+    ggplot(aes(x=genotype,y=dominance, group=genotype, color=genotype, fill=genotype)) + 
+      geom_boxplot() + 
+      scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+      scale_fill_manual(values=c("#D5CFCF50","#86b9d450","#a6897c50"))+
+      scale_x_discrete(drop = FALSE)+
+      theme_minimal()+ 
+      theme(legend.position = "none")
+      
+
+genotypes %>%
+      filter(ID=="6_118519418") %>%
+      select(sample,genotype) %>%
+      inner_join(dominance_predictions, by=join_by(sample==mouse)) %>%
+      mutate(time = as.numeric(substr(time, 2, 2))) %>%
+      mutate(mouse_number = substr(sample, 5, 5)) %>%
+      ggplot(aes(x=time,y=dominance, group=sample, color=genotype)) +
+        geom_line(size=1) +
+        scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+        scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1)) +
+        scale_x_continuous(breaks = c(1:6)) +
+        facet_wrap(cage ~ ., ncol=4) + 
+        theme_minimal()
+
+#Bcas1
+genotypes %>%
+    filter(ID=="2_170210928") %>%
+    mutate(genotype=factor(genotype, levels=c("0/0","0/1","1/1"))) %>%
+    ggplot(aes(x=genotype,y=dominance, group=genotype, color=genotype, fill=genotype)) + 
+      geom_boxplot() + 
+      scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+      scale_fill_manual(values=c("#D5CFCF50","#86b9d450","#a6897c50"))+
+      scale_x_discrete(drop = FALSE)+
+      theme_minimal()+ 
+      theme(legend.position = "none")
+      
+
+genotypes %>%
+      filter(ID=="2_170210928") %>%
+      select(sample,genotype) %>%
+      inner_join(dominance_predictions, by=join_by(sample==mouse)) %>%
+      mutate(time = as.numeric(substr(time, 2, 2))) %>%
+      mutate(mouse_number = substr(sample, 5, 5)) %>%
+      ggplot(aes(x=time,y=dominance, group=sample, color=genotype)) +
+        geom_line(size=1) +
+        scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+        scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1)) +
+        scale_x_continuous(breaks = c(1:6)) +
+        facet_wrap(cage ~ ., ncol=8) + 
+        theme_minimal()
+
+#all four
+genotypes %>%
+      filter(ID %in% c("9_68750520","17_88356194","6_118519418","2_170210928")) %>%
+      select(ID,sample,genotype) %>%
+      inner_join(dominance_predictions, by=join_by(sample==mouse)) %>%
+      mutate(time = as.numeric(substr(time, 2, 2))) %>%
+      mutate(mouse_number = substr(sample, 5, 5)) %>%
+      ggplot(aes(x=time,y=dominance, group=sample, color=genotype)) +
+        geom_line(size=1) +
+        scale_color_manual(values=c("#D5CFCF","#86b9d4","#a6897c"))+
+        scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1)) +
+        scale_x_continuous(breaks = c(1:6)) +
+        facet_grid(ID ~ cage) + 
+        theme_minimal()
 ```
