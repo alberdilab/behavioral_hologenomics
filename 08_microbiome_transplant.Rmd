@@ -67,6 +67,15 @@ beta_neutral_table <- genome_counts %>%
   hillpair(.,q=1, metric="C", out = "pair")
 ```
 
+```{r beta_neutral_pair_summary, message=FALSE, warning=FALSE}
+beta_neutral_table %>%
+  inner_join(transplant_all,by=join_by(first==donor,second==receptor)) %>%
+  mutate(group=factor(group,levels=c("control","original","anti","FMT1","FMT2","FMT3"))) %>%
+  group_by(group) %>%
+  summarise(mean=mean(C), sd=sd(C)) %>%
+  tt()
+```
+
 ```{r beta_neutral_pair_plot, message=FALSE, warning=FALSE}
 beta_neutral_table %>%
   inner_join(transplant_all,by=join_by(first==donor,second==receptor)) %>%

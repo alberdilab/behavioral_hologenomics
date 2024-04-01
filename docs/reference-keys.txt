@@ -55,6 +55,7 @@ dominance-microbiome-analysis
 posterior-estimates
 positively-associated-genomes
 negatively-associated-genomes
+estimate---support-plot
 predict-responses-to-dominance
 plot-responses-to-dominance
 plot-traits-linked-to-trends

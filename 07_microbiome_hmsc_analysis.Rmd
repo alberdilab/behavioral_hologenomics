@@ -142,6 +142,49 @@ getPostEstimate(hM=m, parName="Beta")$support %>%
     tt()
 ```
 
+### Estimate - support plot
+
+```{r estimate_support_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+estimate <- getPostEstimate(hM=m, parName="Beta")$mean %>%
+    as.data.frame() %>%
+    mutate(variable=m$covNames) %>%
+    filter(variable=="dominance") %>%
+    pivot_longer(!variable, names_to = "genome", values_to = "mean") %>%
+    select(genome,mean)
+
+support <- getPostEstimate(hM=m, parName="Beta")$support %>%
+    as.data.frame() %>%
+    mutate(variable=m$covNames) %>%
+    filter(variable=="dominance") %>%
+    pivot_longer(!variable, names_to = "genome", values_to = "support") %>%
+    select(genome,support)
+
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    filter(genome %in% estimate$genome) %>%
+    arrange(match(genome, estimate$genome)) %>%
+     select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+inner_join(estimate,support,by=join_by(genome==genome)) %>%
+    mutate(significance=ifelse(support >= 0.9 | support <= 0.1,1,0)) %>%
+    mutate(support=ifelse(mean<0,1-support,support)) %>%
+    left_join(genome_metadata, by = join_by(genome == genome)) %>%
+    mutate(phylum = ifelse(support > 0.9, phylum, NA)) %>%
+    ggplot(aes(x=mean,y=support,color=phylum))+
+      geom_point(alpha=0.7, shape=16, size=3)+
+      scale_color_manual(values = phylum_colors) +
+      geom_vline(xintercept = 0) +
+      xlim(c(-0.4,0.4)) +
+      labs(x = "Beta regression coefficient", y = "Posterior probability") +
+      theme_minimal()+
+       theme(legend.position = "none")
+
+```
+
 ## Predict responses to dominance
 Based on the fitted model, we can predict the structure of the microbial community for each level of dominance for a certain value of sequencing depth.
 
@@ -171,7 +214,11 @@ predY <- pred %>%
 ### Plot responses to dominance
 The estimated responses of genomes exhibiting significant positive and negative association with dominance.
 
-```{r hmsc_temporal_predictions_genomes_plot, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+```{r hmsc_dominanve_predictions_genomes_plot, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Select desired support threshold
+support=0.9
+negsupport=1-support
+
 #Get phylum colors from the EHI standard
 phylum_colors <- genome_metadata %>%
     left_join(read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv"), by=join_by(phylum == phylum)) %>%
@@ -288,37 +335,51 @@ element_predictions <- map_dfc(community_elements, function(mat) {
       group_by(trait) %>%
       summarise(mean=mean(value),
         p1 = quantile(value, probs = 0.1),
-        p9 = quantile(value, probs = 0.9)) %>%
-      arrange(-mean)
-
-element_predictions %>%
-      tt()
+        p9 = quantile(value, probs = 0.9),
+        positive_support = sum(value > 0)/1000,
+        negative_support = sum(value < 0)/1000) %>%
+      arrange(-positive_support)
 
 # Positively associated
 element_predictions %>%
-  arrange(-mean) %>%
   filter(mean >0) %>%
+  arrange(-positive_support) %>%
   tt()
 
 # Negatively associated
 element_predictions %>%
-  arrange(mean) %>%
   filter(mean <0) %>%
+  arrange(-negative_support) %>%
   tt()
 ```
 
 ```{r hmsc_community_element_predictions_plot, warning=FALSE, comments="", message=FALSE, fig.height=10, fig.width=10, fig.fullwidth=TRUE}
-community_elements %>%
-	bind_rows() %>%
-	pivot_longer(-dominance, names_to = "trait", values_to = "value") %>%
-  filter(trait %in% element_predictions$trait) %>%
-  mutate(trait=factor(trait, levels=element_predictions$trait)) %>%
-	mutate(dominance=as.numeric(dominance)) %>%
-   	ggplot(aes(x=dominance, y=value)) +
-          geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
-          facet_wrap(~trait, ncol=6, scales="free") +
-          theme_minimal() +
-          labs(x="Dominance",y="Metabolic Capacity Index")
+positive <- element_predictions %>%
+  filter(mean >0) %>%
+  arrange(-positive_support) %>%
+  select(-negative_support) %>%
+  rename(support=positive_support) %>%
+  slice(1:5)
+
+# Negatively associated
+negative <- element_predictions %>%
+  filter(mean <0) %>%
+  arrange(-negative_support) %>%
+  select(-positive_support) %>%
+  rename(support=negative_support) %>%
+  mutate(support=-support) %>%
+  slice(1:10) %>%
+  arrange(-mean)
+
+bind_rows(positive,negative) %>%
+  left_join(GIFT_db,by=join_by(trait==Code_element)) %>%
+  mutate(trait=factor(trait,levels=c(rev(positive$trait),negative$trait))) %>%
+  ggplot(aes(x=mean, y=fct_rev(trait), xmin=p1, xmax=p9, color=Function)) +
+      geom_point() +
+      geom_errorbar() +
+      scale_color_manual(values = c("#debc14","#440526","#dc7c17","#172742","#357379","#6c7e2c","#d8dc69","#774d35","#db717d")) +
+      theme_minimal() +
+      labs(x="Regression coefficient",y="Functional trait")
 ```
 
 #### Function level
@@ -371,22 +432,21 @@ function_predictions <- map_dfc(community_functions, function(mat) {
       group_by(trait) %>%
       summarise(mean=mean(value),
         p1 = quantile(value, probs = 0.1),
-        p9 = quantile(value, probs = 0.9)) %>%
-      arrange(-mean)
-
-function_predictions %>%
-      tt()
+        p9 = quantile(value, probs = 0.9),
+        positive_support = sum(value > 0)/1000,
+        negative_support = sum(value < 0)/1000) %>%
+      arrange(-positive_support)
 
 # Positively associated
 function_predictions %>%
-  arrange(-mean) %>%
   filter(mean >0) %>%
+  arrange(-positive_support) %>%
   tt()
 
 # Negatively associated
 function_predictions %>%
-  arrange(mean) %>%
   filter(mean <0) %>%
+  arrange(-negative_support) %>%
   tt()
 ```
 
